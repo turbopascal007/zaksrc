@@ -1,0 +1,9 @@
+
+Included in this archive are :
+
+ NETBIOS.DOC  -  doc file about NetBios. written by Tom Thompson
+                 and copyrighted by CBIS, Inc.
+
+ NETBIOS.PAS  -  full source of NetBios interface unit for Turbo Pascal 6.
+                 this will most likely work just as well on older versions
+                 of pascal as well.

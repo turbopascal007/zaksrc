@@ -1,0 +1,80 @@
+The SETENV set of routines comprise a subroutine (coded in both TurboC
+and Turbo Pascal) and a TurboC utility that uses the subroutine.  These
+utilities set the Environment block of a shell, not of the program.
+
+First some background.  One problem with the Environment block is that a
+program can only access its Env block and can pass the Env block down to
+a lower level program.  When a shell calls a program, a copy of the
+shell's Env block is made.  This copy is used by the program.  When a
+program sets an environment variable with one of the normal "setenv"
+routines, this env variable is not left set when the program exits back
+to the shell.  The env variable is only set in the programs env block,
+not in the shell's.
+
+Many programers (especially me) need a decent interactive way to get
+data into .BAT files.  One way to do this is with a better shell (does
+4DOS handle this?) rather than command.com.  But if you are releasing
+software, you cannot count on a user having some wierd shell.  Thus I
+wrote a "setenv" that sets the shell's env block, not the program's.
+
+This gets a little hairy.  It is relatively easy to find the primary
+shell's env block - just scan memory for the first env block.  But if
+shell A invokes shell B then you want to set shell B's env block not the
+primary block (which is for shell A).  Anyway the "setenv" routine looks
+all around memory, using all sorts of tricks to usually get the shell's
+env block.
+
+A caveat - if it works once for you it will basically always work.  But
+make sure, if you are using other than command.com, that it does work!
+
+Now what do we have here:
+        The basic subroutine is settheenv.  I have coded it in
+        TurboC and TurboP.
+
+        The C prototype is:  int settheenv(char * s1, char * s2);
+
+        in Pascal:  boolean SetTheEnv (S1, S2 : string[24]);
+
+        s1 is the name of the env variable to set.
+        s2 is the value to put into that variable.
+
+        the routine returns 0 (or True) if successful and
+        1 (or False) if a failure.  Remember to check for
+        failure.  A common failure is when the env block
+        is full.
+
+I have included TurboP source, a TPU unit, TurboC source and the object.
+The TurboC files are called setenvs.* (setenvs means setenv subroutine).
+
+I have also included a TurboC program which interactively asks the user
+a question and puts the response into a shell env variable.  This lets
+you, for example, have a .BAT file which asks "what is your name ?" and
+have the response put into an Env variable so that the .BAT file can use
+it.  This program also can set some system values into Env variables.
+(Get the current drive for example.)
+
+The program is called setenv which is why the subroutine is called
+setenvs.
+
+Two years ago I released setenv 1.1 and this setenv (1.3) is pretty much
+the same.  It does have a better search for the env block, but if you
+already have setenv and it works, this will be no surprise.  The
+advantage of this version is that the setenvs is broken into a separate
+routine so you can easily use it in your own code.
+
+About a year ago someone released a very nice assembler version of
+setenv that had a different keyboard feel.  So you may want to hunt in
+archives and get that utility also.  I forget the author and I
+apoligize, he referenced me and I want to reference him.
+
+Oh, I put a bit of work into this program, so if you want to use it
+commercially, please contact me, I would like some $$.  For personal
+use it is free.
+
+Regards,
+Richard Marks
+931 Sulgrave Lane
+Bryn MAwr, PA 19010
+
+rmarks@KSP.unisys.COM
+

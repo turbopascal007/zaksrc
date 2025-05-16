@@ -1,0 +1,543 @@
+program USRINFO;
+uses dos,crt,etc;
+
+type
+  computertype = (IBMXT,IBMAT,AMIGA,MAC,APPLE,TERMINAL,OTHER) ;
+  inforec = record
+        loginname: string[25];
+         realname: string[25];
+         phonenum: string[10];
+              yob: string[4];
+             baud: string[9];
+         computer: computertype;
+      end;
+
+const
+     logfile  = 'USRINFO.LOG';
+     progname = 'USRINFO';
+     ver      = '1.0b';
+     author   = 'Zak Smith';
+
+var
+   INFO      : inforec;
+   ANSI      : boolean;
+   tempstr   : string;
+   textfile  : text;
+   compstring: string[10];
+
+function lowcase(ch: char): char;
+  begin
+  ch := upcase(Ch);
+  case ord(ch) of
+  65..90: Lowcase := chr(ord(ch)+32);
+  else Lowcase := Ch;
+  end;
+  end;
+
+procedure PR(t: string);
+   begin
+   if ANSI then write(t) else Write(output, t);
+   end;
+
+procedure Newline;
+   begin
+   if ANSI then writeln else write(output, #13,#10);
+   end;
+
+procedure ColorFG(c: byte);
+    begin
+    if ANSI then textcolor(c);
+    end;
+
+procedure ColorBG(c: byte);
+    begin
+    if ANSI then textbackground(c);
+    end;
+
+procedure PhoneEditor(var answerformain: string; prestring: string);
+    var
+ tempkey      : char;
+ stringtempkey: string[1];
+  baseX       : byte;
+  answer      : string[10];
+  done        : boolean;
+  i           : byte;
+    begin
+    done := false;
+    baseX := whereX;
+    answer := '';
+    {
+    if length(prestring) <> 0 then
+      begin
+      answer := prestring;
+      for i:=1 to (10 - length(prestring)) do answer := answer + #32;
+      ord(answer[0]) := length(prestring);
+      end;
+    }
+    colorFG(white);
+    colorBG(blue);
+    if ANSI then begin PR(' (   )    -     '); gotoXY(baseX+2, wherey); end
+    else PR(' (');
+    repeat
+    tempkey := readkey;
+    case tempkey of
+       '0'..'9':if ord(answer[0]) < 10 then
+                 begin
+                   answer := answer + tempkey;
+                   case ord(answer[0]) of
+                     1,2,4,5,7,8,9,10:PR(tempkey);
+                     3:
+                       begin
+                       if ANSI then begin pr(tempkey);gotoXY(basex+7, whereY) end
+                       else PR(tempkey+') ');
+                       end;
+                     6:
+                       begin
+                       if ANSI then begin pr(tempkey);gotoXY(baseX+11, wherey) end
+                       else PR(tempkey+'-');
+                       end;
+                   end;
+                 end;
+
+       #8: if ord(answer[0]) > 0 then
+          begin
+          delete(answer,ord(answer[0]),1);
+          {dec(ord(answer[0]));}
+          {answer := copy(answer, 1, ord(answer[0]));}
+          case ord(answer[0]) of
+               0,1,3,4,6,7,8,9,10: if ANSI then begin
+                                               gotoXY(whereX-1, wherey);
+                                               PR(' ');
+                                               gotoXY(whereX-1, wherey);
+                                               end
+                                  else
+                                               begin
+                                               PR(#8+#32+#8);
+                                               end;
+
+               2: if ANSI then
+                      begin
+                      gotoXY(wherex-3, whereY);
+                      PR(' ');
+                      gotoXY(wherex-1, whereY);
+                      end
+                   else
+                       begin
+                       PR(#8+#8+#8+#32+#8);
+                       end;
+
+               5: if ANSI then
+                      begin
+                      gotoXY(whereX-2, wherey);
+                      PR(' ');
+                      gotoXY(wherex-1, whereY);
+                      end;
+                  else
+                      begin
+                      PR(#8+#8+#32+#8);
+                      end;
+               end;
+          end;
+       #13:done := true;
+
+       end;
+    until done;
+    colorBG(black);
+    answerformain := answer;
+    end;
+
+procedure Editor(maxlen: byte; var answerformain: string; prestring: string);
+   var
+       tempkey : char;
+       done    : boolean;
+       index   : byte;
+       answer  : string;
+       baseX   : byte;
+       i       : byte;
+     insertmode: boolean;
+  stringtempkey: string[1];
+
+   begin
+   baseX := whereX;
+   done := false;
+   insertmode := false;
+   index := 0;
+   answer := '';
+   {fillchar(answer, maxlen+1, #32);}
+   if length(prestring) <> 0 then
+      begin
+      answer := prestring;
+      index := length(prestring);
+      {answer[0] := chr(length(prestring));}
+      end;
+
+   ColorFG(white);
+   ColorBG(blue);
+
+   PR(' '+Prestring);
+   if ANSI then
+     begin
+     for i:=length(prestring)+1 to maxlen+1 do PR(' ');
+     gotoXY(basex+1+index,wherey);
+     end
+   else PR(' ');
+
+   { functions ... backspace, right, left, overwrite mode for L, R }
+   {               enter, delete                                   }
+
+   repeat
+      tempkey := readkey;
+      {if index <> ord(answer[0]) then begin sound(300); delay(300); nosound end;}
+      case tempkey of
+        #32, 'A'..'Z', 'a'..'z','0'..'9', ',','.':
+             begin
+              inc(index);
+              if index <= maxlen then
+              begin
+ {for upcase} if (answer[index-1] = #32) or (Answer[index-1] = #0) then
+ {checking}     begin
+                tempkey := upcase(tempkey);
+                end
+              else tempkey := lowcase(tempkey);
+              if insertmode then
+                 begin
+                 if ord(answer[0]) < maxlen then
+                   begin
+                   stringtempkey := tempkey;
+                   insert(stringtempkey, answer, index);
+                   answer[1] := upcase(answer[1]);
+                   for i := 2 to ord(answer[0]) do
+                     begin
+                     case ord(answer[i-1]) of
+                          32: answer[i] := upcase(answer[i]);
+                         else answer[i] := lowcase(answer[i]);
+                          end;
+                     end;
+                   gotoxy(baseX+1, wherey);
+                   PR(answer);
+                   gotoxy(baseX+index+1, wherey);
+                   end;
+                 end
+              else
+                 begin
+                 if index <> ord(answer[0])+1 then answer[index] := tempkey
+                 else answer := answer + tempkey;
+                 PR(tempkey)
+                 end;
+              end;
+             end;
+        #13:
+             begin
+             done := true;
+             end;
+        #8:
+             begin
+             if (index <> 0) and (index = ord(answer[0])) then
+              begin
+              dec(index);
+              delete(answer, ord(answer[0]), 1);
+              answer[0] := chr(ord(answer[0]));
+              if ANSI then
+                  begin
+                  gotoXY(wherex-1, whereY);
+                  PR(' ');
+                  gotoXY(wherex-1, whereY);
+                  end
+              else PR(#8+#32+#8);
+              end;
+             end;
+        #0:                         { test for extended characters }
+             begin
+             case readkey of        { poll for extended part }
+               #75:                 { left arrow }
+                   begin
+                   if ANSI then
+                    begin
+                    if index >= 1 then
+                     begin
+                     dec(index);
+                     gotoxy(whereX-1, wherey);
+                     end;
+                    end;
+                   end;
+               #77:                 { right arrow }
+                  begin
+                  if ANSI then
+                   begin
+                   if index < ord(answer[0]) then
+                     begin
+                     inc(index);
+                     gotoxy(whereX+1, whereY);
+                     end;
+                   end;
+                  end;
+               #71:                 { home }
+                  begin
+                  if ANSI then
+                     begin
+                     index := 0;
+                     gotoxy(baseX+1, wherey);
+                     end;
+                  end;
+
+               #79: IF ANSI then
+                  begin
+                  index := ord(answer[0]);
+                  gotoXY(BaseX+Ord(answer[0])+1, whereY);
+
+                  end;
+                      { insert mode not implemented }
+               #82:
+                  begin
+                  gotoXY(baseX+maxlen+2, whereY);
+                  ColorFG(lightred);ColorBG(black);
+                  if insertmode then begin insertmode := false; PR(' ') end
+                  else begin insertmode := true; PR('i'); end;
+                  GotoXY(BaseX+Index+1, whereY);
+                  ColorFG(white);ColorBG(blue);
+                  end;
+
+
+                  
+
+               #83:         { del }
+                  begin
+                  if ANSI then
+                    begin
+                    delete(answer,index+1,1);
+                    {gotoXY(baseX+1, whereY);
+                    PR(answer);}
+                    PR(copy(answer, index+1, maxlen-(index)));
+                    for i := 1 to maxlen-ord(answer[0]) do PR(' ');
+                    gotoxy(baseX+index+1, wherey);
+                    end;
+                  end;
+
+               end;                           { end of 'case readkey of' }
+             end;                             { end of '#0: begin' }
+        end;                                  { end of 'case tempkey of' }
+   until done;
+
+   {answer[0] := chr(ord(answer[0]));}
+   answerformain := answer;
+   if ANSI then gotoXY(baseX+maxlen+2+1, wherey) else
+   for i := index to maxlen do PR(' ');
+   colorBG(black);
+   end;
+
+Procedure parse_param_str;
+ { uses format                                                 }
+ { d:\path\usrinfo [Grahpicsmode] [User Name]                  }
+   var
+      tempparam1: char;
+      tempparam2: string;
+      i         : byte;
+   begin
+   Tempparam2 := Paramstr(1);
+   tempparam1 := upcase(tempparam2[1]);
+   if TempParam1 <> 'N' then ANSI := True else ANSI := False;
+   for i := 2 to 5 do
+       begin
+       if length(paramstr(i)) <> 0 then info.loginname := info.loginname + paramstr(i) + ' ';
+       end;
+   end;
+
+procedure setup_output;
+   begin
+   if ANSI = false then
+      begin
+      assign(output, '');
+      rewrite(output);
+      end;
+   end;
+
+procedure title;
+   begin
+   colorFG(lightcyan);colorBG(black);
+   if ANSI then clrscr;
+   Newline;
+   PR(PROGNAME);
+   colorFG(Cyan);
+   PR(' by '+Author+' version '+ver);
+   newline;
+   newline;
+   end;
+
+procedure get_realname;
+    begin
+    tempstr := '';
+    colorFG(lightgray);
+    PR('Your Real Name ');
+    editor(25, tempstr,'');
+    info.realname := tempstr;
+    {info.realname := copy(tempstr, 1, 25);}
+    end;
+
+procedure get_phonenum;
+    begin
+    tempstr := '';
+    colorFG(lightgray);
+    PR('Your Phone Number ');
+    phoneeditor(tempstr,'');
+    {info.phonenum := copy(tempstr,1,10);}
+    info.phonenum := tempstr;
+    end;
+
+procedure get_yob;
+    begin
+    tempstr := '';
+    colorFG(lightgray);
+    PR('Year of Birth ');
+    editor(4, tempstr,'19');
+    info.yob := tempstr;
+    {info.yob := copy(tempstr,1,4);}
+    end;
+
+procedure showmc(ch: char; desc: string);
+    begin
+    newline;
+    colorFG(blue);PR('[');colorFG(white);PR(CH);colorFG(blue);PR(']');
+    colorFG(cyan);PR(' '+desc);
+    end;
+
+procedure get_baud;
+    var
+         done   : boolean;
+        tempchar: char;
+    begin
+    newline;
+    colorFG(lightgray);
+    write('Maximum Baud Rate Supported by Your Modem');
+    showmc('A','300');
+    showmc('B','1200');
+    showmc('C','2400');
+    showmc('D','9600');
+    newline;
+    colorFG(Lightgray);PR('Choice [A-D] -> ');
+    done := false;
+    repeat
+      tempchar := readkey;
+      case upcase(tempchar) of
+      'A':begin INFO.baud := '300';done := true ;end;
+      'B':begin info.baud := '1200';done := true;end;
+      'C':begin info.baud := '2400';done := true;end;
+      'D':begin info.baud := '9600';done := true;end;
+      end;
+    until done;
+    colorFG(lightgreen);
+    PR(info.baud);
+    newline;
+    end;
+
+procedure get_computer;
+    var
+       done   : boolean;
+      tempchar: char;
+    begin
+    done := false;
+    colorFG(lightgray);
+    PR('Type of Computer You Own');
+    showmc('A','IBM XT Class - 8088, 8086 CPU');
+    showmc('B','IBM AT Class - 80286, 80386, 80486 CPU');
+    showmc('C','Amiga');
+    showmc('D','Macintosh');
+    showmc('E','Apple');
+    showmc('F','Dumb Terminal');
+    showmc('G','Other - Not Listed');
+    newline;
+    PR('Choice [A-G] -> ');
+    repeat
+    tempchar := readkey;
+    case upcase(tempchar) of
+      'A':begin info.computer := IBMAT   ;done := true; end;
+      'B':begin info.computer := IBMXT   ;done := true; end;
+      'C':begin info.computer := AMIGA   ;done := true; end;
+      'D':begin info.computer := MAC     ;done := true; end;
+      'E':begin info.computer := APPLE   ;done := true; end;
+      'F':begin info.computer := TERMINAL;done := true; end;
+      'G':begin info.computer := OTHER   ;done := true; end;
+      end;
+    until done;
+    ColorFG(lightgreen);
+    PR(Upcase(Tempchar));
+    end;
+
+
+procedure get_info;
+   begin
+   title;
+   get_realname;
+   get_phonenum;
+   newline;newline;
+   get_yob;
+   newline;newline;
+   get_baud;
+   get_computer;
+   end;
+
+procedure open_files;
+   begin
+   assign(textfile, logfile);
+   {$I-}
+   append(textfile);
+   if IOResult <> 0 then rewrite(textfile);
+   {$I+}
+   end;
+
+procedure write_files;
+   var
+      year        : word;
+      month       : word;
+      day         : word;
+      dayofweek   : word;
+      hour        : word;
+      min         : word;
+      sec         : word;
+      hundsec     : word;
+      dayofweekstr: string[3];
+   begin
+   getdate(year, month, day,dayofweek);
+   case dayofweek of
+        1: dayofweekstr := 'Mon';
+        2: dayofweekstr := 'Tue';
+        3: dayofweekstr := 'Wed';
+        4: dayofweekstr := 'Thu';
+        5: dayofweekstr := 'Fri';
+        6: dayofweekstr := 'Sat';
+        7: dayofweekstr := 'Sun';
+        end;
+   gettime(hour, min, sec,hundsec);
+   writeln;
+   writeln({textfile,} year,'-',month,'-',dayofweekSTR,'/',hour,':',min,':',sec,' ',
+                     info.loginname,info.realname,' ',
+                     info.phonenum,' ',info.yob,' ',info.baud,' ',compstring);
+   end;
+
+procedure close_files;
+   begin
+   close(textfile);
+   end;
+
+procedure convert_stuff;
+   begin
+   case info.computer of
+   IBMAT   : compstring := 'IBM AT';
+   IBMXT   : compstring := 'IBM XT';
+   AMIGA   : compstring := 'Amiga';
+   MAC     : compstring := 'Macintosh';
+   TERMINAL: compstring := 'Dumb Term';
+   OTHER   : compstring := 'Other';
+   end;
+   end;
+
+
+begin
+     parse_param_str;            { parse name, graphics mode }
+     setup_output;               { setup standard output, or Bios }
+     get_info;                   { user enters junk }
+     convert_stuff;              { converts computer type to string }
+     open_files;                 { opens files.. }
+     write_files;                { writes files.. }
+     close_files;                { closes files.. }
+end.
+

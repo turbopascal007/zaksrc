@@ -1,0 +1,25 @@
+USRINFO - Yet Another Information Gatherer for Users
+          (C) 1991 by Zak Smith all rights reserved
+
+USRINFO is free.  Do with it what you want.  
+
+I'm not sure what USRINFO does, but it seems that if you type
+USRINFO C fred flintstone
+from the command line something happens.. I think the general syntax for 
+that is
+USRINFO [color code (C,M,N)] [User Name]
+
+It creates 2 files...  
+USRMAIL.TXT - a text file with info of current user..  you can use
+              slmail to mail this to the sysop if you want.
+
+USRINFO.LOG - A text file containing most of the information from the users.
+              A line is added every time USRINFO is run.
+
+USRINFO does not have any com port support - you must use SL's.
+
+I am not planning to update this program, but I might if someone wants
+something changed.   If you want something more flexible, use Super Survey,
+which, I think, is available through Searchlight software and Frank LaRosa.
+
+Later...

@@ -1,0 +1,221 @@
+(*
+  procedure Swing(rec:longint);
+   var Right: longint;
+    begin
+    if (rec<>0) and not(abort or found) then
+      begin
+      Read_Data(dF,DirF,rec,dir);
+      Right := dir.Leaf.Right;
+      if dir.Leaf.Left <> 0 then
+        begin
+        Swing(dir.Leaf.Left);
+        Read_Data(dF,DirF,rec,dir);
+        end;
+
+
+
+      swing(right);
+
+      end;
+    end;
+
+
+ procedure ClimbTree_Dir(rec:longint); {recursive..}
+  var Right     : longint;     {saved right pointer}
+      Left      : longint;     {saved left  pointer}
+
+  begin
+  if not (found or (rec=0)) then
+    begin
+    Read_data(dF,dirf,rec,dir);
+    ssub(dir.name);
+    right:=dir.leaf.right;
+
+    if foundincurtree then
+      begin
+      climbtree_dir(dir.leaf.left);
+
+      read_data(dF,dirf,rec,dir);
+
+      ssub(dir.name);
+      if subs=fn then
+        begin
+
+
+      if not (found or abort)  then exit;
+
+{      climbtree_dir(right);}
+
+      end
+    else
+      begin
+      if leftStr(fn,subs) then climbtree_dir(dir.leaf.left)
+      else if rightStr(fn,subs) then climbtree_dir(dir.leaf.right)
+      else if fn=dir.name then
+        begin
+        foundincurtree := true;
+        found := true;
+        PartialMatches := Picked;
+        dn := setup.name;
+        rfn := dir.name;
+        r:=rec;
+        end
+      else
+        begin
+        foundincurtree:=true;
+        climbtree_dir(dir.leaf.right);
+        end;
+      end;
+      end
+  end;
+
+
+ *)
+
+ (*
+ procedure Look(rec:longint);
+    begin
+    read_Data(dF,dirF,rec,dir);
+
+    ssub(dir.name);
+
+    if (dir.Leaf.Left<>0) and not onmyway  then
+      begin
+      look(dir.Leaf.Left);
+      if donewithcurtree then exit;
+      Read_Data(dF,dirF,rec,dir);
+      end;
+
+    ssub(dir.name);
+
+    donewithcurtree := onmyway and not(subs=fn) or ((subs>fn) and
+      (dir.leaf.right=0) and (dir.leaf.right=0));
+
+    if donewithcurtree then exit;
+
+    if not onmyway then onmyway:=(subs=fn) and (dir.leaf.right=0) and (dir.leaf.left=0)
+    else  onmyway:=subs=fn;
+
+    if onmyway and not donewithcurtree then
+       Case PMF(dir.name) of
+         Pick    : begin
+                   found := true;
+                   dn := setup.name;
+                   rfn := dir.name;
+                   r :=rec;
+                   PartialMatches := Picked;
+                   end;
+         Continue: { nothing };
+         Quit    : begin
+                   Abort := true;
+                   PartialMatches := Aborted;
+                   end;
+         end;
+    if abort or donewithcurtree then exit;
+    if (dir.leaf.right<>0)  then look(dir.leaf.right);
+    end;
+  *)
+(*
+  procedure Look(rec:longint);
+    begin
+    read_Data(dF,dirF,rec,dir);
+
+    ssub(dir.name);
+
+    if not onmyway then
+     begin
+     if leftstr (fn,subs) and (dir.leaf.left<>0) then look(dir.leaf.left)
+    else if rightstr(fn,subs) and (dir.leaf.right<>0) then look(dir.leaf.right)
+    else if fn=dir.name then
+        begin
+        found := true;
+        PartialMatches := Picked;
+        dn := setup.name;
+        rfn := dir.name;
+        r:=rec;
+        end
+     else begin
+       onmyway:=true;
+            if dir.leaf.left<>0 then
+      begin
+      look(dir.leaf.left);
+      read_data(dF,dirF,rec,dir);
+      end;
+
+     ssub(dir.name);
+
+{     donewithcurtree := onmyway and not(subs=fn) or ((subs>fn) and
+      (dir.leaf.right=0) and (dir.leaf.right=0));
+
+     if donewithcurtree then exit;
+
+     if not onmyway then onmyway:=(subs=fn) and (dir.leaf.right=0) and (dir.leaf.left=0)
+     else  onmyway:=subs=fn;}
+
+     writeln(dir.name);
+
+     if onmyway and not donewithcurtree then
+       Case PMF(dir.name) of
+         Pick    : begin
+                   found := true;
+                   dn := setup.name;
+                   rfn := dir.name;
+                   r :=rec;
+                   PartialMatches := Picked;
+                   end;
+         Continue: { nothing };
+         Quit    : begin
+                   Abort := true;
+                   PartialMatches := Aborted;
+                   end;
+         end;
+     if abort or donewithcurtree then exit;
+     if (dir.leaf.right<>0)  then look(dir.leaf.right);
+
+
+
+       end
+    end
+    else
+    begin
+         if dir.leaf.left<>0 then
+      begin
+      look(dir.leaf.left);
+      read_data(dF,dirF,rec,dir);
+      end;
+
+     ssub(dir.name);
+
+{     donewithcurtree := onmyway and not(subs=fn) or ((subs>fn) and
+      (dir.leaf.right=0) and (dir.leaf.right=0));
+
+     if donewithcurtree then exit;
+
+     if not onmyway then onmyway:=(subs=fn) and (dir.leaf.right=0) and (dir.leaf.left=0)
+     else  onmyway:=subs=fn;}
+
+     writeln(dir.name);
+
+     if onmyway and not donewithcurtree then
+       Case PMF(dir.name) of
+         Pick    : begin
+                   found := true;
+                   dn := setup.name;
+                   rfn := dir.name;
+                   r :=rec;
+                   PartialMatches := Picked;
+                   end;
+         Continue: { nothing };
+         Quit    : begin
+                   Abort := true;
+                   PartialMatches := Aborted;
+                   end;
+         end;
+     if abort or donewithcurtree then exit;
+     if (dir.leaf.right<>0)  then look(dir.leaf.right);
+
+
+     end
+    end;
+
+*)
