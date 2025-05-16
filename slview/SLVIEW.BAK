@@ -1,0 +1,487 @@
+Program SlView;
+
+Uses ExitErr, Dos, Crt, SlfLow, SlfHigh, SlDriv, Etc, UnArc, SwpExec;
+
+Const Ver: String = '1.0à [ Alpha! DO NOT DISTRIBUTE ]';
+
+Var User      : UserType;
+    CurDirName: String;
+
+    sx,sy:byte;
+    u    :usertype;
+
+procedure windowon;
+ var x,y:byte;
+ begin
+ x:=wherex;
+ y:=wherey;
+ if y=25 then y:=24;
+ window(1,1,80,24);
+ gotoxy(x,y);
+ end;
+
+procedure windowoff;
+ var x,y:byte;
+ begin
+ x:=wherex;
+ y:=wherey;
+ window(1,1,80,25);
+ gotoxy(x,y);
+ end;
+
+
+Procedure WhichKindOfArc(s:string);far;
+  begin
+  writeln('Un-',s,'ing File, Please Wait ... ');
+  writeln;
+  end;
+
+Procedure PostExec;far;
+ begin
+ windowon;
+ end;
+
+Procedure PreExec;far;
+ begin
+ windowoff;
+ end;
+
+Procedure ExecProc(c,p:string);far; { for unarc }
+ var tv:integer;
+ begin
+
+ writeln('$ ',c,' ',p);
+
+ tv:=Do_Exec(c,p,USE_EMS or USE_XMS,25000,false);
+
+ if tv<>0 then
+  begin
+  writeln;
+  writeln('err: ',tv);
+  end;
+ writeln;
+ end;
+
+Procedure PrintDir;
+ var s:searchrec;
+     c:byte;
+ begin
+ c:=0;
+ writeln;
+ writeln;
+ writeln('Filename.Ext  Size');
+ writeln('~~~~~~~~~~~~  ~~~~');
+ if cfg.ansi then textcolor(lightgray);
+ findfirst('.\TEMP$$.$$\*.*',$3f,s);
+ while doserror=0 do
+   begin
+   inc(c);
+   if s.name[1]<>'.' then writeln(s.name,ltab(length(s.name),13),' ',s.size);
+   if (c=23) then
+     begin
+     if cfg.ansi then textcolor(white);
+     write('More? (Yes No)');
+     if upcase(readkey)='N' then break;
+     write(#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8);
+     write('              ');
+     write(#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8);
+     if cfg.ansi then textcolor(lightgray);
+     c:=1;
+     end;
+
+   findnext(s);
+   end;
+ writeln;
+ end;
+
+procedure TypeFile;
+ var c:byte;
+     fn:string;
+     se:string;
+      f:text;
+      l:string;
+ begin
+ c:=0;
+ writeln;
+ write('Enter the filename you wish to view: ');
+ Editor(12, fn, '', white, blue);
+ writeln;
+ writeln;
+ fn:=upcasestr(fn);
+ if existfile('TEMP$$.$$\'+fn) then
+   begin
+   se:= splitfileext(fn);
+   if (se='.EXE') or (se='.COM') or (se='.GIF') or (se='.BMP') or (se='.OVL') or (se='.OVR') then
+      begin
+      writeln;
+      writeln('I can''t let you see that file.');
+      end
+   else
+      begin
+      if cfg.ansi then textcolor(lightgray);
+      assign(f,'TEMP$$.$$\'+fn);
+      reset(f);
+
+      readln(f,l);
+      while not eof(f) do
+        begin
+        writeln(l);
+        inc(c);
+        if (c=23) then
+         begin
+         if cfg.ansi then textcolor(white);
+         write('More? (Yes No)');
+         if upcase(readkey)='N' then break;
+         write(#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8);
+         write('              ');
+         write(#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8);
+         if cfg.ansi then textcolor(lightgray);
+         c:=1;
+         end;
+        readln(f,l);
+        end;
+
+      close(f);
+      end
+   end
+ else writeln('I couldn''t find that file!');
+ writeln;
+ writeln;
+
+ end;
+
+Function CheckLimits(f:string;setup:setupdata):boolean;
+ var tv:word;
+     fs:longint;
+
+ begin
+ CheckLimits := true;
+ fs:=sizeoffile(f);
+ if (data^.rsactive or cfg.rsactive) then
+   begin
+   if user.uploads=0 then tv:=1 else tv:=user.uploads;
+   if (u.access.ratio>0) and ((((Setup.Value div 10 * fs*128 div 1024)+u.Downloads) div       tv)>u.Access.Ratio)
+   then
+     begin
+     CheckLimits:=false;
+     writeln;
+     if cfg.ansi then Textcolor(cfg.colorchart[special]);
+     writeln('Picking that file would overrun your ratio');
+     end;
+   end;
+  end;
+
+
+Procedure Download(setup:setupdata;batch:boolean);
+ var dszspec:string;
+     filen  :string;
+     proto  :char;
+     ok     :boolean;
+     c      :char;
+     ts     :string;
+     tv     :integer;
+ begin
+ writeln;
+ writeln;
+
+ if not batch then
+  begin
+  writeln;
+  writeln('File to Download: ');
+  Editor(12, filen, '', white, blue);
+  if not existfile('.\TEMP$$.$$\'+filen) then
+    begin
+    writeln('File Not Found!');
+    exit;
+    end;
+  end;
+
+  if batch and not existfile('TEMP$$.DL') then
+    begin
+    prunedir('TEMP$$.DL');
+    exit;
+    end;
+
+  repeat
+     begin
+     writeln;
+     Writeln('Protocol? ');
+     writeln(' Z - Zmodem');
+     writeln(' B - Ymodem');
+     writeln(' X - Xmodem');
+     c:=lowcase(readkey)
+     end
+  until c in ['z','b','x'];
+
+  writeln;
+
+  dszspec:=fsearch('GSZ.COM',getenv('PATH'));
+  if dszspec='' then dszspec:=fsearch('GSZ.EXE',getenv('PATH'));
+  if dszspec='' then dszspec:=fsearch('DSZ.EXE',getenv('PATH'));
+  if dszspec='' then dszspec:=fsearch('DSZ.COM',getenv('PATH'));
+  if dszspec='' then
+   begin
+   writeln;
+   writeln('GSZ or DSZ not found! Ack!');
+   halt(1);
+   end;
+
+  if not batch then
+    ts:='port '+tostrb(cfg.comport)+' s'+c+' TEMP$$.$$\'+filen
+  else
+    ts:='port '+tostrb(cfg.comport)+' s'+c+' TEMP$$.DL\*.*';
+
+  writeln(dszspec,' ',ts);
+
+  If cfg.rsactive then
+   begin
+   LocalOnly;
+   NoComInput;
+   tv:=Do_Exec(dszspec,ts,USE_EMS or USE_XMS,25000,false);
+   ok:=lo(dosexitcode)=0;
+   LocalAndRemote;
+   ComInput;
+   end;
+
+ if batch then prunedir('TEMP$$.DL');
+
+ end;
+
+procedure MarkFiles(setup:setupdata);
+  var s:searchrec;
+  begin
+  mkdir('TEMP$$.DL');
+
+  writeln;
+  writeln;
+  if cfg.ansi then textcolor(lightgray);
+  findfirst('.\TEMP$$.$$\*.*',$3f,s);
+  while doserror=0 do
+    begin
+    if s.name[1]<>'.' then
+      begin
+      if cfg.ansi then textcolor(cyan);
+      write(s.name,ltab(length(s.name),13),' ');
+      if cfg.ansi then textcolor(lightgray);
+      write(s.size);
+      if cfg.ansi then textcolor(lightcyan);
+      write('  Mark This File? (Y/N/Q)  ');
+      case upcase(readkey) of
+       'Y': begin
+            if cfg.ansi then textcolor(yellow);writeln('Chosen!');
+            copyfile('TEMP$$.$$\'+s.name,'TEMP$$.DL\'+s.name);
+            end;
+       'Q': begin
+            if cfg.ansi then textcolor(magenta);
+            writeln('Aborted');
+            break;
+            end
+        else
+        begin
+        if cfg.ansi then textcolor(magenta);writeln('NOT!');
+        end
+       end;
+
+      end;
+    findnext(s);
+    end;
+  writeln;
+  DownLoad(setup,true);
+  end;
+
+
+Procedure Do_File(filename,sldirname:string);
+  var r    :longint;
+      setup:SetupData;
+
+      broken,sfx: boolean;
+      ErrorS: string;
+      c     : byte;
+      done  : boolean;
+      Flavour:string;
+
+  begin
+  writeln;
+  writeln('Please Wait.  Accessing File Data...');
+
+  if not Setup_Info(sldirname,SetupDir,setup) then
+    begin
+    writeln;
+    writeln('Error! -- Sub not found!');
+    halt(1);
+    end;
+
+  r:=FileInSlDir(filename,sldirname,setup.path);
+  if (r=0) then
+    begin
+    writeln;
+    writeln('Error! -- Files not Consistent!');
+    halt(1);
+    end;
+
+  if not existfile(setup.filepath+filename) then
+    begin
+    writeln;
+    writeln('I''m Sorry, that file appears to be offline.');
+    exit;
+    end;
+
+  Write('Continue With Extraction? ');
+  getchoice(2,'Yes No',white,blue,cyan,c);
+  if c=2 then exit;
+
+  writeln;
+
+  if not UnCompressFile(setup.filepath+filename,WhichKindOfArc,
+            ExecProc,PreExec,PostExec,broken,sfx,errors)
+  then
+    begin
+    writeln;
+    writeln('Duh! I don''t know that kind of file!');
+    exit;
+    end;
+
+
+  if broken then
+   begin
+   writeln;
+   writeln('Archive if Broken!');
+   prunedir('.\TEMP$$.$$');
+   exit;
+   end;
+
+  Printdir;
+
+
+  ansi:=cfg.ansi;
+  portcheck:=false;
+
+  done:=false;
+
+  GetChoice(5,'Quit List Type Mark Download',white,blue,cyan,c);
+  while c<>1 do
+    begin
+    case c of
+     1:done:=true;
+     2:PrintDir;
+     3:TypeFile;
+     4:MarkFiles(setup);
+     5:Download(setup,false);
+     end;
+    if not done then GetChoice(5,'Quit List Type Mark Download',white,blue,cyan,c);
+    end;
+
+  writeln;
+  write('Please wait while I clean up all the merde.. ');
+  prunedir('.\TEMP$$.$$');
+  writeln(' .. Ahh much better...');
+  end;
+
+
+Procedure LookingStatus(s:string);far;
+ begin
+ write(#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8+#8);
+
+ if cfg.ansi then textcolor(lightgray);
+ write('Scanning ');
+ if cfg.ansi then textcolor(cyan);
+ write(s,ltab(length(s),8));
+ end;
+
+function ThisOne(s:string):partialmatchfunctype;far;
+ var c:byte;
+ begin
+ if wherex<15 then write(' ':17);
+
+ write('   ');
+ if cfg.ansi then textcolor(white);
+ write(s+ltab(length(s),13));
+ write(' ');
+ if cfg.ansi then textcolor(lightgray);
+ getchoice(3,'Yes No Abort',white,blue,cyan,c);
+ case c of
+  1: ThisOne:=Pick;
+  2: ThisOne:=Continue;
+  3: ThisOne:=Quit;
+  end;
+ writeln;
+ end;
+
+
+Function ProcessEntry: boolean;
+
+ Procedure Prompt;
+   begin
+   if cfg.ansi then textcolor(cfg.colorchart[normal]);
+   write('[');
+   if cfg.ansi then textcolor(cfg.colorchart[special]);
+   write(curdirname);
+   if cfg.ansi then textcolor(cfg.colorchart[normal]);
+   write(']',ltab(ord(curdirname[0]),8));
+   if cfg.ansi then textcolor(cfg.colorchart[promptcolor]);
+   Write(' Enter Filename: ');
+   end;
+ var curline:string;
+     t:longint;
+ begin
+ writeln;
+ writeln;
+ prompt;
+ Editor(12, curline, '', white, blue);
+ if rtrim(curline)='' then begin ProcessEntry:=false; exit end;
+ writeln;
+
+ curline:=upcasestr(curline);
+
+ case Partialmatches(curline,curdirname,ThisOne,LookingStatus,curdirname,curline,t) of
+   Aborted: begin
+            writeln;
+            writeln('Aborted');
+            end;
+
+      None: begin
+            writeln;
+            if cfg.ansi then textcolor(red);
+            writeln('No Match for "',curline,'" found');
+            end;
+
+    Picked: begin
+            writeln;
+            Do_File(curline,curdirname);
+            end;
+
+   end;
+
+
+
+ end;
+
+
+BeGiN
+windowon;
+DirectVideo:=False;
+LoadArchiveDef ( 'archive.cfg' );
+if existfile('.\TEMP$$.$$') then  prunedir('.\TEMP$$.$$');
+if existfile('.\TEMP$$.DL') then prunedir('.\TEMP$$.DL');
+Init_Config( '' , closed );
+user_info(cfg.curruser,u);
+etc.ansi := cfg.ansi;
+CurDirName := cfg.currdir;
+if cfg.ansi then textbackground(black);
+User_Info(cfg.curruser,user);
+writeln;
+if cfg.ansi then textcolor(cyan);
+writeln;
+repeat until not ProcessEntry;
+writeln;
+if cfg.ansi then textbackground(blue);
+if cfg.ansi then textcolor(white);
+write(' SLView ');
+if cfg.ansi then textbackground(black);
+if cfg.ansi then textcolor(lightgray);
+write(' v'+ver);
+if cfg.ansi then textcolor(white);
+writeln;
+writeln('         (c) copyright 1992 by Zak Smith, a.r.r., etc. (Send Me Money!)');
+windowoff;
+EnD.

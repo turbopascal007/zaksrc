@@ -1,0 +1,57 @@
+SLView (c) copyright 1993 by Zak Smith all rights reserved, etc..
+
+PLEASE NOTE!
+  Zak will take no blame for any damages made to hardware or software
+  which occur as a result of this product.  All I can say is that it
+  works fine on my system (and my alpha tester's systems). 
+
+
+Beta Notice:
+  This release is a beta which means that you can register it if you would
+  like to.  It also means that I am not finished developing it, so it may
+  change; I need a broader base of testers.  Please reply to me some way
+  if you find any bugs, etc, improvements..
+
+
+SLView allows users to look into archives on your system and view or
+download their contents.
+
+Setup SLView is easy.  
+  þ dump it (slview.exe and archive.cfg) in the dir with config.sl2
+  þ add it as a door command in your file system
+              command: slview.exe
+                 path: .
+        comm. support: standard or force-color
+                abort: none
+            drop file: none
+
+If you want to change the default compression schemes, edit ARCHIVE.CFG
+to reflect your tastes.
+
+I was going to give out SLView for free, but then I thought, "Gee, I could
+use a CD-ROM drive or a new monitor." 
+
+If you enjoy SLVIEW, a gift of $20.00 (US) would be appreciated.  If you
+choose to register it, you will receive a .KEY file in netmail that will
+remove the "Unregistered" notice and the nonsense in the begining..
+
+
+³ Registration:
+³   Checks should be made out to "Zak Smith"
+³   In your letter, you must include the following
+³     þ Your SL registration number (example: 736)
+³     þ Your BBS Name as you wish it to appear
+³
+³   My Address is:
+³
+³    Zak Smith
+³    w308n7161 Club Ct.
+³    Hartland, Wi, 53029
+³    USA
+
+ 
+Zak Smith
+zak.smith@xanadu.mil.wi.us
+Sirius Cybernetics 414-966-3552
+250:200/736
+1:154/736

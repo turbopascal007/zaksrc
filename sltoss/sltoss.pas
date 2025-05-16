@@ -1,0 +1,630 @@
+{ SLTOSS - Tosses PKTs to a SUBBOARD 
+
+  This main module is Public Domain.
+
+  You may use this as long as you freely distribute
+  anything you make with it.
+
+  Originally thrown together by Zak Smith.
+  I'm fido 1:154/736 and sl_net 250:200/736
+
+  Assumes that the AreaID (like DBRIDGE or MONTE) is the same as the
+  SLBBS Subboard Name.
+
+  It is *NOT* optimized for memory or speed.
+  (although I guess tossing a whole packet at a time helps)
+
+  The maximum size of the Packet it can toss is dependant on how much free
+  RAM (heap) you have avilable.  It would be possible to have it toss 
+
+  Units Used:
+      Dos,Crt 
+        from TurboPascal 6.0
+      General,FileDef,SubList,Message,Users,Post 
+        from SLTPU6
+      Etc ( see note )
+        is a little unit of mine with string handling stuff in it
+        if you can't find a procedure or function anywhere else, it's
+        probably from there
+      WinTtt5,FastTtt5
+        From Turbo Technojock's Toolkit
+        used for windowing routines..
+
+  It loads the whole packet into the heap and then writes each message into
+  SLBBS.
+}
+
+{ NOTE!   On June 16, 1992, I added the routines from "ETC" to the main
+          module for distribution
+}
+
+{$G+,N-,E-}
+{$M 32768,0,655360}
+
+Uses General,FileDef,SubList,Message,Users,Post,dos,crt,winttt5,fastttt5;
+
+Type ToTextType = ^TextType;
+     TextType   = record
+      Line : string[80];
+      Next : ToTextType;
+      end;
+Type ToMsgType = ^MsgType;
+     MsgType = record
+      area    :string[20];
+      FromUser:string[30];
+      ToUser  :string[30];
+      Date    :string[15];
+      SubJ    :string[60];
+      Next    :ToMsgType;
+      Text    :ToTextType;
+      end;
+
+type ToEchoTagsType = ^EchoTagsType;
+     EchoTagsType = record
+       echoname: string[25];
+       slname  : string[8];
+       next    : ToEchoTagsType;
+       end;
+
+
+var  RootMsg   :ToMsgType;
+     RootTag   : ToEchoTagsType;
+     pktfile   :string;
+     timeb     :longint;
+     num       :longint;
+
+     tx,ty,bx,by       : byte;
+     wind              : (top,bottom);
+
+
+
+{ Stuff from "ETC" }
+
+function ToStr(s: longint): string;
+  var a: string;
+  begin
+  str(S,A);
+  ToStr:=A;
+  end;
+
+function SecondsSinceMidnight(h,m,s:word):longint;
+  begin
+  SecondsSinceMidnight := (h*3600)+(m*60)+s
+  end;
+
+procedure CurTime(var h:word; var m: word;var s:word);
+ Var Hour,Min,Sec,Sec100:word;
+ begin
+ GetTime(Hour,Min,Sec,Sec100);
+ h:=hour;
+ m:=min;
+ s:=sec;
+ end;
+
+
+function nowsecondssincemidnight: longint;
+ var h,m,s: word;
+ begin
+ curtime(h,m,s);
+ nowsecondssincemidnight:=secondssincemidnight(h,m,s);
+ end;
+
+{ Back to main module .. }
+
+procedure TopWindow;
+  begin
+  textcolor(cyan);
+  if wind=bottom then
+     begin
+     bx:=wherex;
+     by:=wherey;
+  window(2,2,79,11);
+  gotoxy(tx,ty);
+  wind:=top;
+  end;
+  end;
+
+procedure BottomWindow;
+  begin
+  textcolor(cyan);
+  if wind=top then
+     begin
+     tx:=wherex;
+     ty:=wherey;
+  window(2,13,79,24);
+  gotoxy(bx,by);
+  wind:=bottom;
+  end;
+  end;
+
+procedure statusline;
+  var atr:byte;
+      spd:word;
+      x,y:byte;
+  begin
+  ATR:=textattr;
+
+  x:=wherex;
+  y:=wherey;
+
+  window(1,1,80,25);
+
+  gotoxy(3,12);
+
+  textcolor(white);
+  textbackground(blue);
+
+  if num>0 then spd:=(num*10) div (nowsecondssincemidnight-timeb) else spd:=0;
+
+  write(' Elapsed Time: ',(nowsecondssincemidnight-timeb),' ... ',(spd / 10):3:1,' msgs/sec ');
+
+  textattr:=atr;
+
+  if wind=top then window(2,2,79,11) else window(2,13,79,24);
+
+  gotoxy(x,y);
+
+  end;
+
+
+Procedure LoadAllPacket;  
+type  { I derived this procedure from a message in PASCAL in FidoNet}
+  _pktheader =
+    record
+      orignode      : word; (* of packet, not of messages in packet *)
+      destnode      : word; (* of packet, not of messages in packet *)
+      year          : word; (* of packet creation, e.g. 1986 *)
+      month         : word; (* of packet creation, 0-11 for Jan-Dec *)
+      day           : word; (* of packet creation, 1-31 *)
+      hour          : word; (* of packet creation, 0-23 *)
+      minute        : word; (* of packet creation, 0-59 *)
+      second        : word; (* of packet creation, 0-59 *)
+      baud          : word; (* max baud rate of orig and dest, 0=SEA *)
+      packettype    : word; (* old type-1 packets now obsolete *)
+      orignet       : word; (* of packet, not of messages in packet *)
+      destnet       : word; (* of packet, not of messages in packet *)
+      productcode   : byte; (* 0 for both Fido and SEAdog *)
+      fill          : array[1..33] of byte;
+    end;
+
+  _pakdmsg =
+    record
+      msgtype       : word; (* 02H 00H message type, old type-1 is obsolete *)
+      orignode      : word; (* of message *)
+      destnode      : word; (* of message *)
+      orignet       : word; (* of message *)
+      destnet       : word; (* of message *)
+      attributeword : word;
+      cost          : word; (* lowest unit of originator's currency *)
+    end;
+var
+  import            : file;
+  pktheadbuffer     : array[1..58] of byte;
+  packetheader      : _pktheader absolute pktheadbuffer;
+  pktmsgbuffer      : array[1..14] of byte;
+  messageheader     : _pakdmsg absolute pktmsgbuffer;
+  msgtextbuffer     : array[1..128] of char;
+  buffer            : array[1..20480] of char;
+  line              : string;
+  filename          : string;
+  ch                : char;
+  position          : longint;
+  oldpos            : longint;
+  newpos            : longint;
+  index             : word;
+  bytesread         : word;
+  i                 : word;
+  CurMsg            : ToMsgType;
+
+  memstart          : longint;
+
+
+function asc2str(var temparray; count : byte) : string;
+var
+  temp : array[1..255] of char absolute temparray;
+  st   : string;
+
+begin
+  move(temp,st[1],count);
+  i := pos(#0,temp);
+  if (i <> 0) and (i < count) then
+    st[0] := chr((pos(#0,temp) - 1))
+  else
+    st[0] := chr(count);
+  asc2str := st;
+end;
+
+procedure displaytext(bytesread : word);
+var curline:totexttype;
+    curs:string;
+    curoffs:word;
+begin
+  i := 1;
+  curs:='';
+  curoffs:=1;
+  while (i < succ(bytesread)) and (buffer[i] <> #0) do
+    begin
+      if (buffer[i]=char($01)) then
+       begin
+       repeat inc(i) until buffer[i] in [char($8d),char($0d)];
+       curs:='';
+       curoffs:=1;
+       end;
+
+      if (buffer[i] = chr($8d)) then
+
+        begin
+
+        if copy(curs,1,5)='AREA:' then curmsg^.area:=copy(curs,6,length(curs)-5) else
+
+        if curs<>'' then
+        if curmsg^.text=nil then begin
+{         getmem(curmsg^.text,length(curs)+1+sizeof(pointer));}
+          new(curmsg^.text);
+          curmsg^.text^.line:=curs;
+          curmsg^.text^.next:=nil;
+          end
+        else
+         begin
+         curline:=curmsg^.text;
+         while (curline^.next<>nil) do curline:=curline^.next;
+
+         new(curline^.next);
+{         getmem(curline^.next,length(curs)+1+sizeof(pointer));}
+
+         curline:=curline^.next;
+         curline^.next:=nil;
+         curline^.line:=curs;
+         end;
+        curs:='';
+        curoffs:=0;
+        end
+
+      else
+        if (buffer[i] = chr($0d)) then
+       begin
+        if copy(curs,1,5)='AREA:' then curmsg^.area:=copy(curs,6,length(curs)-5) else
+       if curs<>'' then
+        if curmsg^.text=nil then begin
+          new(curmsg^.text);
+          curmsg^.text^.line:=curs;
+          curmsg^.text^.next:=nil;
+          end
+        else
+         begin
+         curline:=curmsg^.text;
+         while (curline^.next<>nil) do curline:=curline^.next;
+
+         new(curline^.next);
+
+         curline:=curline^.next;
+         curline^.next:=nil;
+         curline^.line:=curs;
+         end;
+        curs:='';
+        curoffs:=0;
+        end
+        else
+          if (buffer[i] = chr($0a)) then
+          else
+        begin
+
+       if curoffs>=78 then
+
+        begin
+        curs:=curs+buffer[i];
+        if curmsg^.text=nil then begin
+
+          new(curmsg^.text);
+
+          curmsg^.text^.line:=curs;
+          curmsg^.text^.next:=nil;
+          end
+        else
+         begin
+         curline:=curmsg^.text;
+         while (curline^.next<>nil) do curline:=curline^.next;
+
+         new(curline^.next);
+         curline:=curline^.next;
+         curline^.next:=nil;
+         curline^.line:=curs;
+         end;
+        curs:='';
+        curoffs:=0;
+        if buffer[i+1]=' ' then inc(i);
+        end
+
+        else
+        begin
+         curs:=curs+buffer[i];
+         inc(curoffs);
+        end;
+      end;
+      inc(i);
+    end;
+end;
+
+begin
+  memstart:=memavail;
+  filename:=pktfile;
+
+  assign(import,filename);
+  {$I+} reset(import,1); {$I-}
+  if (ioresult <> 0) then
+    begin  writeln('error opening ',filename);halt(1) end;
+
+  TopWindow;
+
+  statusline;
+
+  write(' Loading: ',pktfile:12,'; freemem: ',tostr(memavail):6,'; Mem Used: ');
+
+  blockread(import,pktheadbuffer,sizeof(pktheadbuffer),bytesread);
+  repeat
+   begin
+    if RootMsg=nil then
+      begin
+      New(RootMsg);
+      RootMsg^.next:=nil;
+      RootMsg^.fromuser:='';
+      RootMsg^.touser:='';
+      RootMsg^.date:='';
+      RootMsg^.Subj:='';
+      RootMsg^.text:=nil;
+      CurMsg:=RootMsg;
+      end
+     else
+      begin
+      New(CurMsg^.next);
+      CurMsg:=CurMsg^.next;
+      CurMsg^.next:=nil;
+      CurMsg^.fromuser:='';
+      CurMsg^.touser:='';
+      CurMsg^.date:='';
+      CurMsg^.Subj:='';
+      CurMsg^.text:=nil;
+      end;
+
+    { reading it in chunks is inefficient - I told you it wasn't optimized }
+
+    blockread(import,pktmsgbuffer,sizeof(pktmsgbuffer),bytesread);
+
+    position := filepos(import);
+    blockread(import,msgtextbuffer,sizeof(msgtextbuffer),bytesread);
+
+    curmsg^.date:=asc2str(msgtextbuffer,20);
+
+    seek(import,position + pos(#0,msgtextbuffer));
+    position := filepos(import);
+
+    blockread(import,msgtextbuffer,sizeof(msgtextbuffer),bytesread);
+    curmsg^.touser:=asc2str(msgtextbuffer,36);
+
+    seek(import,position + pos(#0,msgtextbuffer));
+    position := filepos(import);
+
+    blockread(import,msgtextbuffer,sizeof(msgtextbuffer),bytesread);
+    curmsg^.fromuser:=asc2str(msgtextbuffer,36);
+
+    seek(import,position + pos(#0,msgtextbuffer));
+    position := filepos(import);
+
+    blockread(import,msgtextbuffer,sizeof(msgtextbuffer),bytesread);
+    curmsg^.SubJ:=asc2str(msgtextbuffer,72);
+
+    seek(import,position + pos(#0,msgtextbuffer));
+    oldpos := filepos(import);         { remember start of text position }
+
+    blockread(import,msgtextbuffer,sizeof(msgtextbuffer),bytesread);
+    while (pos(#0,msgtextbuffer) = 0) and not eof(import) do
+      begin
+        position := filepos(import);   { remember where we are for later }
+        blockread(import,msgtextbuffer,sizeof(msgtextbuffer),bytesread);
+
+      end;
+    newpos := position + pos(#0,msgtextbuffer);
+    seek(import,oldpos);
+    blockread(import,buffer,(newpos - oldpos),bytesread);
+
+    displaytext((newpos - oldpos));      { load text into ram }
+
+    gotoxy(55,wherey);
+    write(' ',ToStr(memstart-memavail));
+    statusline;
+    end;
+
+  until eof(import) or (bytesread < 128);
+
+  writeln;
+  close(import);
+end;
+
+var msg: msgptr;
+    s,subboard,filename: string;
+    valid: boolean;
+    header: headertype;
+    inputfile: text;
+    p: SubListPtr;
+    result: longint;
+
+    CurMsg: ToMsgType;
+    curline: ToTextType;
+    LastSub:string[8];
+    sr:searchrec;
+
+procedure initvars;
+   begin
+   tx:=1;
+   ty:=1;
+
+   bx:=1;
+   by:=1;
+
+   wind:=top;
+
+   RootMsg:=nil;
+   RootTag:=nil;
+
+   Lastsub:='';
+   num:=0;
+   timeb:=nowsecondssincemidnight;
+
+   GrowMkWin(1,1,80,12,red,black,1);
+
+   GrowMkWin(1,12,80,25,red,black,1);
+
+   textcolor(red);
+   textbackground(black);
+
+   gotoxy(1,12);write(#195);
+
+   gotoxy(80,12);write(#180);
+
+   end;
+
+procedure DeNitMsg;
+ var cm :array [1..750] of ToMsgType;
+     cur:tomsgtype;
+     i  :longint;
+     n  :longint;
+ begin
+{ for i:=1 to 750 do cm[i]:=nil;
+
+ i:=1;
+ cur:=rootmsg;
+ while cur<>nil do
+  begin
+  cm[i]:=cur;
+  cur:=cur^.next;
+  inc(i);
+  end;
+ n:=i-1;
+
+ for i:=1 to n do  
+  begin
+  if cm[i]^.text<>nil then dispose(cm[i]^.text);
+  if cm[i]<>nil then dispose(cm[i]);
+  end;}
+
+ release (rootmsg);  { just use mark/release instead of de-initing everything}
+ end;
+
+procedure LoadEchoTags;
+ begin
+
+
+
+
+ end;
+
+
+Begin
+  clrscr;
+
+  speed:=50; {for TTT window routines}
+  InitVars;
+
+  LoadEchoTags;
+
+  window(2,2,79,11);
+
+  if OpenFiles([CONFIGF,NODESF]) and OpenUserFile then else halt;
+  SubListInit(Subboards);
+
+  { the '!!' is to produce a compiler error, get it? }
+
+  { You might want to change this next line ... }
+
+  Findfirst('d:\sltest\*.PKT',$3F,sr);
+
+  pktFile:=sr.name;
+  if doserror=0 then begin
+
+  While CurMsg<>nil do
+   if doserror=0 then
+    begin
+    curmsg:=curmsg^.next;
+    if (curmsg=nil) or (curmsg^.area<>subboard) then
+      begin
+      loadallpacket;
+      curmsg:=rootmsg;
+      if curmsg^.area<>subboard then CloseSub(Mainsub);
+      end;
+
+    Subboard:=CurMsg^.Area;
+    upstr(subboard);
+    stripspaces(subboard);
+    p:=ListIndex(subboard);
+    if (p=Nil) or (p^.fname<>subboard) then
+        begin
+        subboard:=lastsub;
+        end else valid:=true;
+
+    if lastsub<>subboard then
+     if OpenSub(subboard,Mainsub,Allfiles) then else
+         begin writeln('bah');halt;end;
+
+    new(msg);
+    clearmsg(msg);
+    fillchar(header,sizeof(header),0);
+
+    with header do
+       begin
+       Subj:=CurMsg^.subj;
+       ToUser:=CurMsg^.touser;
+       From:=CurMsg^.fromuser;
+
+       dosdate(date);
+       dostime(time);
+
+       end;
+
+    curline:=Curmsg^.text;
+
+    while (curline^.next<>nil) and (curline<>nil) do
+       begin
+       addline(msg,curline^.line);
+       curline:=curline^.next;
+       end;
+
+    bottomWindow;
+    textcolor(cyan);
+    Write(' Area: ');
+    textcolor(yellow);
+    write(subboard:8);
+    textcolor(cyan);
+    write(' .. ');
+    textcolor(lightcyan);
+    write(num:3);
+    textcolor(cyan);
+    write(' -> ');
+    statusline;
+
+    result:=MsgPost(msg,header,0,true,true);
+    inc(num);
+    writeln(' ..done');
+    statusline;
+
+    DisposeMsg(msg);
+
+    if (curmsg^.next=nil) or (curmsg^.next^.area<>subboard) then
+        begin
+        findnext(sr);
+        pktfile:=sr.name;
+        DeNitMsg;
+        new(rootmsg);
+        rootmsg:=nil;
+        end;
+
+    lastsub:=subboard;
+    end
+     else curmsg:=nil;
+    pktfile:=s;
+  end;
+
+  CloseUserFile;
+  CloseAllFiles;
+
+writeln(' Time: ',nowsecondssincemidnight-timeb);
+end.

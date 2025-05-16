@@ -1,0 +1,157 @@
+Program Tick2Sl;
+
+{$M 16384,0,200}
+
+Uses Dos,etc,slfiles,slfgen,execwin;
+
+var descfile:text;
+
+    filen   :string;
+    dir     :string;
+    dirmfile:string;
+    curl    :string;
+    pth     :string;
+
+procedure pline;
+
+  var fn,desc:string;
+
+  rec:longint;
+  d:dirtype;
+
+  d1:string[40];
+  d2,d3:string[60];
+
+  tval,s2,s3:byte;
+
+  begin
+
+  fn:=rtrim(ltrim(copy(curl,1,pos('/',curl)-1)));
+
+  desc:=ltrim(copy(curl,pos('/',curl)+1,length(curl)));
+
+  if existfile(pth+fn) then
+    begin
+
+    chdir(copy(pth,1,length(pth)-1));
+
+    exec(dirmfile,' '+dir+' A /D /R '+fn+' " "');
+
+    open_dir(splitfilepath(dir),splitfilename(dir));
+    read_dir_genhdr;
+    read_dir_hdr;
+
+    rec:=fileinsldir(fn,splitfilename(dir),splitfilepath(dir),false);
+
+    if length(desc)>40 then tval:=40 else tval:=length(desc);
+
+    d1:=copy(desc,1,tval);
+
+    if length(desc)>100 then tval:=60 else tval:=length(desc)-40;
+
+    if tval<1 then tval:=0;
+
+    if length(desc) < 41 then s2:=0 else s2:=41;
+
+    d2:=copy(desc,s2,tval);
+
+    if length(desc) >= 160 then tval:=60 else tval:=length(desc)-40;
+
+    if tval<1 then tval:=0;
+    if length(desc) < 101 then s3:=0 else s3:=101;
+
+    d3:=copy(desc,s3,length(desc)-101);
+
+    d1:=rtrim(d1);
+    d2:=rtrim(d2);
+    d3:=rtrim(d3);
+
+    if not(rec=0) then
+     begin
+
+     read_dir(rec,d);
+
+     d.descrip:=d1;
+     d.edescrip[1]:=d2;
+     d.edescrip[2]:=d3;
+
+     write_dir(rec,d);
+
+     close_dir;
+
+    writeln('added: ',fn:12,' - ',d1);
+      if d2<>'' then writeln(' ':20,d2);
+      if d3<>'' then writeln(' ':20,d3);
+     end
+    else
+     begin
+     writeln(fn,' does not exist in SLBBS!');
+     end;
+    end
+   else
+    begin
+    writeln(pth+fn,' does not exist on disk!');
+    end;
+
+  end;
+
+begin
+
+writeln('Tic2Sl - ''the living embodyment of kludgyness'' - long description importer');
+writeln('   '); 
+writeln;
+
+if paramcount=0 then
+  begin
+  writeln;
+  writeln('no command line parameters present');
+  writeln;
+  writeln('Tic2Sl [dirname]    [files.bbs]        [...\dirmaint.exe] [path to files\]');
+  writeln('tic2sl \dir\pdn-pas \pdn-pas\files.dsc \dirmaint.exe      \pdn-pas\');
+  writeln;
+  writeln('ListFmt var in tic.cfg _must_ be listfmt %3:-13/%1:-160');
+  writeln('you should probably delete the ''files.bbs'' file after this is run');
+  writeln;
+  halt(1);
+  end;
+
+
+dir:=fexpand(paramstr(1));
+
+
+dirmfile:=fsearch('DIRMAINT.EXE',getenv('PATH'));
+
+if dirmfile='' then
+  begin
+  dirmfile:=paramstr(3);
+  dirmfile:=upcasestr(fexpand(dirmfile));
+  if copy(dirmfile,length(dirmfile)-3,4)<>'.EXE' then
+    dirmfile:=dirmfile+'.EXE';
+  end;
+
+
+pth:=fexpand(paramstr(4));
+
+if not existfile(dir+'.SL2') then
+  begin
+  writeln;
+  writeln('Could not find ',dir+'.SL2');
+  writeln('Please make sure it''s a full pathname (without the .SL2, though');
+  writeln;
+  halt(1);
+  end;
+
+assign(descfile,paramstr(2));
+reset(descfile);
+
+readln(descfile,curl);
+pline;
+
+while not eof(descfile) do
+  begin
+  readln(descfile,curl);
+  pline;
+  end;
+
+close(descfile);
+end.

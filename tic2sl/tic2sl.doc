@@ -1,0 +1,46 @@
+Tic2Sl v2.00 <c> copyright 1992 by Zak Smith all rights reserved
+
+DOC's?  You've got to be kidding?
+
+v2.0 should be much faster than the older version!
+
+Tic2Sl must now be run from a directory that has a CONFIG.SL2 in it!
+
+Here is the *NEW* command line structure:
+
+\db\tick\tic2sl PASCAL   files.dsc
+\db\tick\tic2sl SOFTDIST files.dsc
+\db\tick\tic2sl OS2      files.dsc
+\db\tick\tic2sl SL200    files.dsc
+
+"PASCAL" is the name of the SLBBS DIR SUBBOARD..
+
+it ASSUMES the "files.dsc" is in the same dir as the files (.zip, etc)
+of the directory..
+
+Here is the change to tic.cfg that must be made:
+
+ListName Files.dsc
+listfmt %3:-13/%1:-160
+
+The ListFmt MUST be like that.. it is very important.
+
+If there is a 3rd command line param 
+ (like
+  tic2sl os2 files.dsc GRR
+ ), tic2sl will kill files.dsc after it is done.
+
+
+version history
+  1.00 -- initial release, depended upon dirmaint
+  2.00 -- first rewrite
+  2.01 -- bug fix
+  2.02 -- bug fix -- added log/newfiles file
+  2.03 -- date fix -- added kill descfile 
+
+ Guess What?!
+  tic2sl was created with Searchlight Programmer's Library and, holy cow,
+  some Portions Copyright (c) 1991 Searchlight Software.
+
+- Zak, 966-3552, 1:154/736, 250:200/736
+

@@ -1,0 +1,30 @@
+Subboard-Manager copyright (c) 1992 by Zak Smith, all rights reserved
+
+First of all, SubMgr is FREE.  I have seen too many cheesy programs which have
+tons of messages promoting the author's BBS, and then ask for money as well.
+
+If you like SubMgr, or have any suggestions on improvements for future
+releases, feel free to send me netmail.
+
+I hate writing documents!  
+
+Sub-Mgr is easy to set up!
+
+Dump it in your main slbbs directory that contains config.sl2 for 
+ whatever node, and then run it!  It needs "standard" comm support!
+
+- Version History ---------
+ v1.00 - worked
+ v1.01 - added some highlighting and an error message for lame users
+ v1.02 - added more support for attributes and access levels..
+         one of the sltpu routines didn't work as advertised..
+---------------------------
+
+ Guess What?!
+  Sub-Mgr was created with Searchlight Programmer's Library and, holy cow,
+  some Portions Copyright (c) 1991 Searchlight Software.
+
+ Contact me if you have problems or suggestions at 1:154/736 or 250:200/736
+ or 414-966-3552!
+
+

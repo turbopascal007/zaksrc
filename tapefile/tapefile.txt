@@ -1,0 +1,129 @@
+TapeFile (c) copyright 1993 by Zak Smith, all rights reserved and all that
+             other crud
+
+ Alright..  First some history..  Back when I has too many files for my
+puny like 150 meg drive, I decided to put my CMS Jumbo 250 to good use!
+I wrote this door so that users could download files that were offline.
+Well, I used it for a few months and it worked quite nicely.  I then
+got some new 300 meg drives and, well, I didn't really need this program
+any more!   Well, it's been sitting here on my development computer since
+then.
+
+First of all, do NOT do anything until you have read this WHOLE document
+and understand it fully. (it's not that long, don't worry)
+
+This was written for the CMS drives that use the TAPE.EXE program.  
+
+ To set this system up, follow these 10 easy steps!
+
+  1.  start with a clean tape
+
+  2.  from withing Searchlight, use the Move command to move all the files
+      you want to be offline into their own directory.  This directory should
+      have a unique pathname, for example:
+
+                     File Subboard Name: OFFLINE
+                          Path to Files: D:\FILES\OFFLINE\
+                       Path to Dir File: D:\SLBBS\DIRS\
+
+  3.  Use the Tape Backup utility to back up all these files to tape
+
+  Now we will set up what TapeFile needs
+
+  4.  move TapeFile.EXE, this text file, and the TapeFile.CFG files to
+      their own directory, I recommend something like C:\BBS\TAPEFILE\
+
+  5.  Make a "child" directory under the one in step 4 for the files that
+      have been recently restored.  Something like C:\BBS\TAPEFILE\TEMP\
+
+      A little discussion is needed here:  TapeFile does not delete the files
+      after they have been restored.   If you want to delete these files, you
+      may.  I designed it this way so that the files that are requested the
+      most will stay on the HD.  (These are kept in the "TempBufPath" dir.)
+
+
+  6.  Run the TAPE SEARCH command like this:
+
+         C> Tape Search D:\FILES\OFFLINE\*.* /S/V=1 > C:\BBS\TAPEFILE\VOLUME.1
+
+         ("D:\files\offline" is an example, substitute the "Path to Files")
+
+ 7.   Using a Text Editor, REMOVE the header and footers from VOLUME.1.  The
+      end result should look somethinglike this:
+
+[ begining of file -- this is not included in actual file, of course ]
+FRED-UF.EXE         27,049  08-24-1992  02:01 PM \FRED\
+FRED-FU.EXE         29,228  08-24-1992  02:04 PM \FRED\
+SCAN-FU.EXE         16,507  08-24-1992  02:09 PM \FRED\
+MAIL-UF.EXE         25,753  08-24-1992  02:08 PM \FRED\
+FREDTOSS.EXE        20,974  08-24-1992  02:05 PM \FRED\
+FREDSCAN.EXE        19,626  08-24-1992  02:06 PM \FRED\
+FRED.DOC            48,317  07-10-1991  06:44 PM \FRED\
+LZIDENT.EXE         10,824  08-11-1991  11:15 PM \FRED\
+UUCICO.EXE          48,146  01-06-1991  01:20 AM \FRED\
+[ end of file, this also is not actually included ]
+
+ 8.   Using a text editor, edit TapeFile.CFG to reflect your system
+      configuration.
+
+ 9.  Install as a command or door from the Searchlight Menu Editor.
+     This program requires the "Standard" or "Force-Color" setting, 
+     depending on what video system you have.    This program requires
+     one command line parameter to run, that being the Path to TAPEFILE.CFG.
+     example:
+           C> TAPEFILE D:\SLBBS\TAPEFILE\TAPEFILE.CFG
+
+ 10. You may delete the files in the "Path to Files" Directory ONLY after
+     you have tested this system!
+
+     ** WARNING ** A system like this is VERY hard on tapes.  I recommend
+     ** WARNING ** making AT LEAST 3 IDENTICAL tapes.  Also, if you have to
+     ** WARNING ** "hard" reboot, REMOVE THE TAPE FIRST.  Once one of mine
+     ** WARNING ** was snapped when I didn't remove it first!
+
+ How to make identical tapes:
+   I recomment just starting out with 3, and then just running the backup
+   commands identically for each of the 3 tapes.  works great and really safe.
+   Yes, I realize dc2120 tapes are about $20, but you wouldn't want to loose
+   120 megs of files, would you?
+
+
+ Note:  Whenever you update the SL directory or add volumes or if TapeFile
+        is acting funny, DELETE TAPEFILE.IDX .. it is only a quick index
+        and is rebuilt.
+
+That's it!
+
+If you are confused, send me netmail or call me and we can get it working.
+
+If you want to add more files to the offline directory later, do this:
+
+ 1.  Within Searchlight, move the files to the "offline" directory.
+
+ 2.  Run the TAPE BACKUP program again, but MAKE SURE YOU DO _NOT_ OVERWRITE
+     THE FIRST VOLUME!  (ie: use the /A switch, NOT /-A)
+
+ 3.  Do the Tape Search command again, but use VOLUME.2 for the redirected
+     filename (or .3 for the 3rd, etc..)
+
+ 4.  Remember to update tapefile.cfg
+
+ 5.  Remember to make a few copies of this backup. 
+
+
+  done.
+
+version history
+
+ 1.01 -- bug fix :-)  I didn't expect a user with 0 uploads, sorry
+ 1.0  -- initial release
+
+If you need to contact the me (Zak Smith), here is some info..  I am always
+("usually") happy to answer questions.
+
+ Zak Smith   250:200/736       -> sl_net
+             1:154/736         -> fidonet
+ zak.smith@xanadu.mil.wi.us    -> internet
+ sysop Sirius Cybernetics 414-966-3552
+
+have fun!

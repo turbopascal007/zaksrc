@@ -1,0 +1,7 @@
+
+ 0.80 BETA - First public release
+ 0.81 BETA - bugfix ratio check
+ 0.82 BETA - added * DL ratio updating
+                   * hopefully improved clear screen before unarcing
+                   * check write only dirs.
+ 

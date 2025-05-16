@@ -1,0 +1,38 @@
+SLFDN Announcer copyright (c) 1992 by Zak Smith, all rights reserved
+
+First of all, SLFDNANN is FREE.
+
+If you like slfdnann, or have any suggestions on improvements for future
+releases, feel free to send me netmail.
+
+-[ Version History ]------------------------------------------------------------
+ 1.00    initial release
+ 1.01    fixed bug with "FROM" keyword
+         added code so that you don't have to delete the old *.TIC's
+ 1.02    fixed date bug.
+ 1.03    fixed a sl color code thing.
+         added up to 50 "outbound" dirs.
+-------------------------------------------------------------------------------
+
+ This reads all the *.TIC files in a specified directory and then posts
+ announcement messages in subboards you want.   I use this when I hatch 
+ a file..
+
+ As of version 1.01, SlFdnAnn will store the filenames that have already
+ been processed in SLFDNANN.DAT.  I added this because sometimes I forgot
+ to delete the old TIC files in my outbound directory, and slfdnann would
+ report them again.. now it won't....  If you want to re-announce the files,
+ just delete slfdnann.DAT...
+ 
+ -- CONFIGUARION --
+
+ Edit the SLFdnAnn.CFG file to change the paths, etc to suit your system.
+ SLFDNANN must be run from a directory with a CONFIG.SL2 in it!
+
+ Guess What?!
+  slfdnann was created with Searchlight Programmer's Library and, holy cow,
+  some Portions Copyright (c) 1991 Searchlight Software.
+
+ Contact me if you have problems or suggestions at 1:154/736 or 250:200/736
+ or 414-966-3552!
+
