@@ -1,0 +1,1012 @@
+{ Dired (c) copyright 1991 by Zak Smith all rights reserved          }
+
+Program DIRED;
+
+Uses ExitErr, Dos, Crt, SlfLow, SlfHigh, Etc;
+
+{ $R+ }               { Range checking }
+{ $S+ }               { Stack checking }
+{ $M 16384,0,655360 } { Default Stack  }
+
+
+{ Range Checking, enabled for debugging, also so that it generates an }
+{ error message intead of producing wierd output                      }
+
+
+{ because of the design of this program, it will work with even more        }
+{ speed if there is a disk cache running, or it will even be faster if      }
+{ your disk controller has a built in cache.   It traverses the whole dir   }
+{ tree (which only takes a few seconds for 200 files), and then it assigns  }
+{ pointers to the data to an array. which is [1..N] where N is the number   }
+{ of files in the directory.
+
+{ Recursive alorithm for the binary tree file directory goes at       }
+{ about 41 nodes per second.                                          }
+
+{ has not been re-timed with error detection using ARG()              }
+
+const
+       version = '2.00';
+
+       buffermax = 46;
+       BaseY = 5;
+
+       { BufferMax is maximum number of buffers that could ever be needed }
+       { this is equal to the greatest amount of lines per screen minus 4 }
+
+type
+     ToFileDirType = ^FileDirType;
+
+     FiledirType = record  { name and path of dirfiles.sl2 }
+        Next: ToFileDirType;
+        Name: string[8];
+        Path: string[60];
+     end;
+
+     ToFilePtrType = ^FilePtrType;
+     FilePtrType = record
+         num   : longint;
+         recnum: longint;
+         end;
+
+     scrtype  = record
+        chr : char;
+        attr: byte;
+     end;
+
+Var
+    FastLoadFiles : boolean;                         { no screen update    }
+                                                     { while scanning dir  }
+    OrigTextMode  : word;                            { original text mode  }
+    NewTextMode   : word;                            { new text mode       }
+
+    buffersize    : integer;                         { buffersize parsed   }
+                                                     { from command line,  }
+
+    PathToConfig   : string;                         { path to config file }
+
+    FileDirRoot    : ToFileDirType;                  { for filedir.sl2     }
+
+
+    CurDirIndex    : integer;                        { current open dir    }
+    NumOfDirs      : integer;                        { number of dirs      }
+
+    Files          : array[1..buffermax] of Dirtype; { buffer of files     }
+    CurFileIdx     : integer;                        { current file        }
+
+    FilePtrRoot    : ToFilePtrType;                  { ll of pointers   }
+
+    LowFile        : integer;                       { first file in buffer }
+    NumOfFiles     : integer;                       { number of files      }
+
+    Screen         : array[1..80,1..25] of scrtype;
+
+
+procedure Arg(Io: word; s: string);
+   begin
+   if Io <> 0 then
+    begin
+    textbackground(black);textcolor(lightred);
+    clrscr;
+    if NewTextMode <> OrigTextMode then TextMode(OrigTextMode);
+    writeln('Error ',IoResult,': Program Terminated: ', s);
+    normvideo;
+    HALT(1);     { Stop Everything!  Full Reverse, Scotty! }
+    end;
+   end;
+
+
+
+Function AddToList(dn,path:string): boolean; far;
+  var cur   : ToFileDirType;
+
+      setup : setupdata;
+
+  begin
+  inc(numofdirs);
+
+  cur:=FileDirRoot;
+
+   if cur<>nil then
+     while (cur^.next<>nil) do
+      begin
+      cur:=cur^.next
+      end;
+
+   if cur<>nil then begin new(cur^.next);
+               cur:=cur^.next; end
+         else new(cur);
+
+   cur^.next:=nil;
+   cur^.name:=upcasestr(dn);
+
+   cur^.path:=upcasestr(path);
+
+   if FileDirRoot=Nil then FileDirRoot:=Cur;
+
+  addtolist := true;
+  end;
+
+
+procedure Get_Dir_Names;
+  begin
+  NumofDirs := 0;
+
+  MainSubList ( '' , SetupDIR , AddToList );
+
+  if numofdirs = 0 then Arg(1, 'No File Directories!');
+  end;
+
+Function
+
+
+procedure Choose_Dir(var Donehere: boolean);
+
+  var a     : integer;
+      b     : string;
+      w     : byte;
+      maxnum: integer;
+      picked: boolean;
+      k     : char;
+      lowdir: integer;
+      olddir: integer;
+      oldscr: integer;
+      scridx: integer;
+      numlin: integer;
+      tdone : boolean;
+
+
+  procedure ScrollDirs(n: integer);
+    var a: integer;
+    begin
+
+    textcolor(cyan);
+    textbackground(black);
+    for a:= 1 to maxnum do
+     begin
+     gotoxy(4,1+a );  { 2..24 }
+
+     write(casestr(FileDirs[n+a-1].name)+tab(ord(FileDirs[n+a-1].name[0]),8));
+
+     end;
+    end;
+
+  begin
+
+  numlin := Buffersize + 2;
+
+  textbackground(black);
+  textcolor(green);
+  clrscr;
+
+  gotoXY(1,1);pr(#213);for w:=2 to 13 do pr(#205);pr(#184);
+
+  for W:= 2 to numlin + 1 do begin gotoxy(1,W); PR(#179) end;
+  for W:= 2 to numlin + 1 do begin gotoxy(14,W); PR(#179) end;
+
+  gotoXY(1,numlin + 2);pr(#212);for w:=2 to 13 do pr(#205);pr(#190);
+
+  textcolor(cyan);
+  if numofdirs > numlin then maxnum := numlin else maxnum := numofdirs;
+
+  for W:=1 to maxnum do
+    begin
+    gotoxy(4,1+W); pr(casestr(FileDirs[W].name));
+    end;
+
+  textcolor(blue);
+  gotoxy(21, 1);for w:=21 to 79 do write(#196);
+  gotoxy(21, 5);write(#196,#196,#196,' ');textcolor(red);
+  write('Version ', Version,' ');textcolor(blue);
+
+  for w:=21+3+(length(version))+2+8 to 79 do write(#196);
+
+  textcolor(lightcyan);
+  gotoxy(22, 2);write(' ÒÄ¿  Ò  ÒÄ·   ÒÄ·   ÒÄ¿ ');
+  gotoxy(22, 3);write(' º ³  º  ÇÂ½   ÇÄ    º ³ ');
+  gotoxy(22, 4);write(' ÐÄÙ  Ð  Ð \   ÐÄ½   ÐÄÙ ');
+
+  textcolor(cyan)     ;gotoxy(53, 2);write('The File Directory Editor');
+  textcolor(cyan)     ;gotoxy(53, 3);write('        for the');
+  textcolor(cyan)     ;gotoxy(53, 4);write(' Searchlight BBS System');
+
+  textcolor(red);
+  gotoxy(21, 7);for w:=21 to 79 do write(#196);
+  gotoxy(21, 9);for w:=21 to 79 do write(#196);
+
+  Textcolor(yellow);gotoxy(21, 8);
+  write(' Dired (C) Copyright 1991 by Zak Smith all rights reserved');
+
+  textcolor(green);
+  gotoxy(21, 11);for a:=21 to 79 do write(#196);
+
+  gotoxy(21, 19);for a:=21 to 79 do write(#196);
+
+  textcolor(lightcyan);gotoxy(22, 12);write('Function Keys');
+
+  gotoxy(23, 13 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Home');textcolor(blue);write(']       ');
+                      textcolor(cyan);write('Go to begining of listing');
+
+  gotoxy(23, 14 );textcolor(blue);write('[');textcolor(yellow);
+                      write('End');textcolor(blue);write(']        ');
+                      textcolor(cyan);write('Go to end of listing');
+
+  gotoxy(23, 15 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Up Arrow');textcolor(blue);write(']   ');
+                      textcolor(cyan);write('Scroll up one line');
+
+  gotoxy(23, 16 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Down Arrow');textcolor(blue);write('] ');
+                      textcolor(cyan);write('Scroll down one line');
+
+  gotoxy(23, 17 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Enter');textcolor(blue);write(']      ');
+                      textcolor(cyan);write('Opens current directory for viewing, editing');
+
+  gotoxy(23, 18 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Escape');textcolor(blue);write(']     ');
+                      textcolor(cyan);write('Quits Dired');
+
+
+  textcolor(blue);
+
+  gotoxy(21, 21);for a:=21 to 79 do write(#196);
+  gotoxy(21, 25);for a:=21 to 79 do write(#196);
+
+  gotoxy(22, 22);textcolor(lightgray);
+  write('Command Line Parameters (optional): ');
+  textcolor(white);gotoxy(23, 23);
+  write('DIRED /p<path>          /l<lines>        /B[ios]');gotoxy(22, 24);
+  write('          to Config.Sl2     per screen      screen writes');
+
+  lowdir := 1;
+  CurDirIndex := 1;
+  ScrIdx := 1;
+  OldScr := 1;
+  OldDir := 1;
+  DoneHere := False;
+  Picked := False;
+  tdone := false;
+
+  textbackground(Blue);textcolor(White);
+     GotoXY(3,ScrIdx+1);PR(' '+CaseStr(FileDirs[CurDirIndex].Name)+tab(ord(filedirs[CurDirIndex].name[0]),8));
+
+  cursoroff;
+
+  repeat
+     begin
+     repeat until keypressed;
+     k := readkey;
+
+     textbackground(Black);textcolor(cyan);
+     GotoXY(3,OldScr+1);PR(' '+CaseStr(FileDirs[OldDir].Name)+tab(ord(filedirs[oldDir].name[0]),8));
+
+     case K of
+      #27: begin picked := true;donehere := true end;
+       #0:
+           begin
+           case Readkey of
+   { home }   #71: if curdirindex > 1 then
+                    begin
+                    curdirindex := 1;
+                    scridx := 1;
+                    lowdir := 1;
+                    scrolldirs(lowdir);
+                    end;
+   { up   }   #72: if curdirindex > 1 then
+                    begin
+                    dec(curdirindex);
+                    dec(scridx);
+                    if ScrIdx < 1 then
+                        begin
+                        ScrIdx := 1;
+                        dec(lowdir);
+                        scrolldirs(lowdir);
+                        end;
+                    end;
+   { down }   #80: if curdirindex < numofdirs then
+                    begin
+                    inc(curdirindex);
+                    inc(scridx);
+                    if ScrIdx > MaxNum then
+                        begin
+                        ScrIdx := maxnum;
+                        inc(lowdir);
+                        Scrolldirs(lowdir);
+                        end;
+                    end;
+   { end  }   #79: if curdirindex < numofdirs then
+                    begin
+                    if numofdirs > maxnum then lowdir := numofdirs - maxnum+1;
+                    curdirindex := numofdirs;
+                    scridx := maxnum;
+                    scrolldirs(lowdir);
+                    end;
+             end; { case readkey }
+           end;  {begin }
+
+       #13: picked := true;
+
+       end;     {case k of }
+
+
+     textbackground(Blue);textcolor(White);
+     GotoXY(3,ScrIdx+1);PR(' '+CaseStr(FileDirs[CurDirIndex].Name)+tab(ord(filedirs[CurDirIndex].name[0]),8));
+
+     OldDir := CurDirIndex;
+     OldScr := ScrIdx;
+
+     end; { repeat }
+
+  until picked;
+  cursoron;
+  end;
+
+
+procedure Status(s:string);
+  var x,y,a:integer;
+  begin
+  x:=wherex;y:=wherey;
+  gotoxy(20,1);
+  textcolor(green);write('[');
+  textcolor(lightgray);
+  write(' ',s,' ');
+  textcolor(green);write(']');
+  for a:= 80-WhereX downto 1 do write(#196);
+  end;
+
+
+procedure ErrorBTF;
+  begin
+  Arg(IoResult, 'Error Traversing Binary Structure in '+FileDirs[CurDirIndex].name );
+  end;
+
+procedure StatusBTF;
+  begin
+  if Not FastLoadFiles then
+  Status('Scanning Directory '+CaseStr(FileDirs[CurDirIndex].name)+
+                  ' - '+ToStr(NumOfFiles));
+  end;
+
+procedure ClimbTree_Dir(rec:longint);
+  var Right     : longint;
+      Left      : longint;
+
+  begin
+
+  if rec <> 0 then
+    begin
+
+    {$I-}
+    Seek(CurDirFile, (CurDirGenHdr.RecSize*(rec-1))+CurDirGenHdr.Offset);
+    BlockRead(CurDirFile, CurDir, CurDirGenHdr.RecSize);
+    {$I+}
+
+    ErrorBTF;
+
+    Right := CurDir.leaf.Right;
+    Left := CurDir.leaf.left;
+
+    if Left <> 0 then ClimbTree_Dir(Left);
+
+    Inc(NumOfFiles);
+    FilePtr[NumOfFiles] := rec;
+
+    StatusBTF;
+
+    if Right <> 0 then ClimbTree_Dir(Right);
+
+    end;
+
+  end;
+
+
+
+procedure ScanData;
+  var n:longint;
+  begin
+  numoffiles := 0;
+  N := CurDirHdr.Root.Treeroot;
+  If FastLoadFiles then Status('Scanning Directory '+CaseStr(FileDirs[CurDirIndex].name));
+  ClimbTree_Dir(N);
+  end;
+
+
+Procedure Writefile(n: longint; rec: DirType);
+  begin
+  {$I-}
+  Seek(CurDirFile, (CurDirGenHdr.RecSize*( fileptr[n] -1))+CurDirGenHdr.Offset);
+  Blockwrite(CurDirFile, Rec, CurDirGenHdr.RecSize);
+  {$I+}
+  Arg(IoResult, 'Error Writing '+FileDirs[CurDirIndex].name );
+  end;
+
+procedure Getfile(n: longint; var rec: DirType);
+  { note the FilePtr[n] in the SEEK line.  it is the actual record number }
+  begin
+  {$I-}
+  Seek(CurDirFile, (CurDirGenHdr.RecSize*( fileptr[n] -1))+CurDirGenHdr.Offset);
+  BlockRead(CurDirFile, Rec, CurDirGenHdr.RecSize);
+  {$I+}
+  Arg(IoResult, 'Error Reading '+FileDirs[CurDirIndex].name);
+  end;
+
+
+procedure Help_File;
+  var a   : integer;
+      k   : char;
+  begin
+  for a:= BaseY to BaseY + 5 do
+    begin
+    gotoxy(1,A);clreol;
+    end;
+  gotoxy(1,basey+5+1);textcolor(green);for a:=1 to 69 do write(#196);
+  write('[');textcolor(lightgray);write(' Key... ');textcolor(green);
+  write(']Ä');
+
+  gotoxy(2, baseY   );textcolor(lightcyan);write('Function Keys');
+
+  gotoxy(3, baseY+1 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Home');textcolor(blue);write(']       ');
+                      textcolor(cyan);write('Go to begining of listing');
+
+  gotoxy(3, baseY+2 );textcolor(blue);write('[');textcolor(yellow);
+                      write('End');textcolor(blue);write(']        ');
+                      textcolor(cyan);write('Go to end of listing');
+
+  gotoxy(3, baseY+3 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Up Arrow');textcolor(blue);write(']   ');
+                      textcolor(cyan);write('Scroll up one line');
+
+  gotoxy(3, baseY+4 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Down Arrow');textcolor(blue);write('] ');
+                      textcolor(cyan);write('Scroll down one line');
+
+  gotoxy(43,baseY+1 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Page Up');textcolor(blue);write(']    ');
+                      textcolor(cyan);write('Scroll up one page');
+
+  gotoxy(43,baseY+2 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Page Down');textcolor(blue);write(']  ');
+                      textcolor(cyan);write('Scroll down one page');
+
+
+  gotoxy(43,baseY+3 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Enter');textcolor(blue);write(']      ');
+                      textcolor(cyan);write('Edit current file');
+
+  gotoxy(43,baseY+4 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Escape');textcolor(blue);write(']     ');
+                      textcolor(cyan);write('Exit to Directory listing');
+
+  gotoxy(3, baseY+5 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Alt-C');textcolor(blue);write(']      ');
+                      textcolor(cyan);write('Clear file''s password');
+
+  gotoxy(43, baseY+5 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Alt-E');textcolor(blue);write(']');
+                      textcolor(lightgray);write('/');textcolor(blue);
+                      write('[');textcolor(yellow);write('F2');
+                      textcolor(blue);write('] ');
+                      textcolor(cyan);write('Extended file info');
+
+
+  k := readkey;
+  for a:= basey to basey + 6 do
+     begin
+     gotoxy(1,a);clreol;
+     end;
+  end;
+
+Procedure Proc_Dir;
+   var  k        : char;
+        A        : integer;
+        B        : integer;
+        donehere : boolean;
+        oldscr   : integer;
+        scridx   : integer;
+        selected : boolean;
+        temp     : dirtype;
+        maxnum   : integer;
+
+   const  pffile = 4;                   { file }
+          pfdot  = 12+pffile;           { extend dot }
+          pfofl  = 13+pffile;           { offline }
+          pfdesc = 19;                  { description }
+          pfpw   = 13+pffile;           { Password }
+
+   procedure showlong(n: integer);
+    begin
+    GotoXY(1,2);
+    TextColor(blue);write('[');
+    TextColor(Cyan);write(CaseStr(Files[n].name) + Tab(ord(Files[n].name[0]),12));
+    TextColor(Blue);Write(']');
+
+    if Length(Files[n].EDescrip[1]) > 0 then
+     begin
+     GotoXY(18, 2);TextColor(LightGray);
+        Write(Files[n].EDescrip[1]);ClrEol;
+     GotoXY(18, 3);
+        Write(Files[n].EDescrip[2]);ClrEol;
+     end
+    else
+     begin
+     GotoXY(18,2);ClrEol;
+     GotoXY(18,3);ClrEol;
+     end;
+    end;
+
+   procedure putfile(n: integer);
+    begin
+    gotoxy(pffile, baseY-1+n);
+    textcolor(lightgreen);
+    write(casestr(Files[n].name));clreol;
+
+    textcolor(red);
+
+    if (files[n].passwd[1] <> 0) and
+       (files[n].passwd[2] <> 0) and
+       (files[n].passwd[3] <> 0) then
+       begin
+       gotoxy(pfpw, basey-1+n);
+       write('+');
+       end;
+
+    if files[n].offline then
+       begin
+       gotoxy(pfofl, basey-1+n);
+       write('*');
+       end;
+
+    textcolor(cyan);
+
+    if Files[n].Edescrip[1] <> '' then
+       begin
+       gotoxy(pfdot,baseY-1+n);
+       write(#249);
+       end;
+
+    textcolor(lightgray);
+    gotoxy(pfdesc,basey-1+n);
+    write(files[n].Descrip);
+    end;
+
+   procedure ScrUp;
+    begin
+    GotoXY(1, BaseY);
+    InsLine;
+    PutFile(1);
+    end;
+
+   procedure ScrDn;
+    begin
+    gotoxy(1, BaseY);
+    DelLine;
+    GotoXY(1,BaseY+ (Buffersize-1) );
+    Putfile(BufferSize);
+    end;
+
+   Procedure ScrollFiles(n: integer);
+        var a: integer;
+        begin
+        for a:=1 to maxnum do
+          begin
+          gotoxy(1,BaseY-1 + a);
+
+          putfile(A);GotoXY(1, WhereY+1);
+          end;
+       end;
+
+    procedure select(a: integer);
+       begin
+       gotoxy(1,BaseY-1 +a);
+       textbackground(black);
+       textcolor(white);
+       write('->');
+       {write(#254);}
+       end;
+
+    procedure Unselect(a: integer);
+       begin
+       gotoxy(1,BaseY-1 +a);
+       textbackground(black);
+       write('  ');
+       end;
+
+   procedure Edit_Short;
+       var Stringone, Stringtwo: string;
+       begin
+       GotoXY(pfdesc-1, BaseY+ScrIdx-1);
+       Stringtwo := Files[ScrIdx].Descrip;
+       CursorOn;
+       Editor(40, Stringone, stringtwo,white,blue);
+       files[scridx].descrip := stringone;
+       CursorOff;
+       gotoxy(pfdesc-1, wherey);textcolor(lightgray);write(' ');
+       write(files[scridx].descrip);clreol;
+       end;
+
+   procedure Edit_long;
+       var Stringone, Stringtwo: string;
+       begin
+       GotoXY(17,2);
+       Stringtwo := files[ScrIdx].EDescrip[1];
+       CursorOn;
+       Editor(60, Stringone, stringtwo,white,blue);
+       CursorOff;
+       Textcolor(lightgray);gotoxy(17, 2);
+       Files[ScrIdx].EDescrip[1] := stringone;
+       Write(' ',files[ScrIdx].EDescrip[1]);clreol;
+
+       if Files[ScrIdx].EDescrip[1] <> '' then
+        begin
+        GotoXY(17,3);
+        Stringtwo := files[ScrIdx].Edescrip[2];
+        CursorOn;
+        Editor(60, Stringone, stringtwo,white,blue);
+        CursorOff;
+        Textcolor(lightgray);gotoxy(17,3);
+        Files[ScrIdx].EDescrip[2] := stringone;
+        Write(' ',files[ScrIdx].Edescrip[2]);clreol;
+        end
+       else { if descrip[1] DOES = '' }
+         begin
+         Files[ScrIdx].EDescrip[2] := '';
+         gotoxy(17, 3);clreol;
+         end;
+       putfile(scridx);
+       end;
+
+   procedure Show_Extended(n: integer);
+       var k    : char;
+           name : string[25];
+       begin
+       gotoxy(18,2);clreol;
+       gotoxy(18,3);clreol;
+
+       name := '<deleted user>';
+
+       if files[n].id <> 0 then
+        begin
+        open_userfile;
+        read_user_hdrs;
+        readuser(files[n].id);
+        close_userfile;
+        name := user.name;
+        end;
+
+       gotoxy(18, 2);textcolor(lightgray);write('Uploaded by ');
+       textcolor(white);write(name);textcolor(lightgray);
+       write(' on ');textcolor(white);
+
+       write(files[n].date.month);textcolor(lightgray);write('-');
+       textcolor(white);write(files[n].date.day);textcolor(lightgray);
+       write('-');
+       textcolor(white);write(files[n].date.year+1900);
+
+       gotoxy(18,3);textcolor(lightgray);write('File Size ');
+       textcolor(white);write(files[n].length*128);
+
+       textcolor(lightgray);
+       Write(' Downloaded ');textcolor(white);write(files[n].times);
+       textcolor(lightgray);write(' times');
+
+       gotoxy(74,2);textcolor(blue);write('[');textcolor(yellow);
+       write(' Key ');textcolor(blue);write(']');
+
+       k := readkey;
+       gotoxy(1,2);clreol;
+
+       showlong(scridx);
+       end;
+
+   begin
+   CursorOff;
+
+   textbackground(black);
+   clrscr;
+   textcolor(Green);
+   GotoXY(1,1);pr('[');textcolor(Cyan);
+   PR(casestr(FileDirs[CurDirIndex].name) + Tab(ord(FileDirs[CurDirIndex].name[0]),7));
+   TextColor(Green);PR(']');
+   for a:=1 to 70 do write(#196);
+   Gotoxy(1,baseY-1);
+   for a:=1 to 59 do write(#196);write('[');
+   {textcolor(lightgray);write('[');}
+   textcolor(yellow);write('F1');
+   textcolor(lightgray);write(' - Help Screen');
+   textcolor(green);write(']ÄÄÄ');
+
+   Open_File_Dir;
+   Read_File_Gen_Hdr;
+   Read_File_Hdr;
+   ScanData;
+
+   selected := false;
+   lowFile := 1;
+   CurFileIdx :=1;
+   donehere := false;
+   scridx:=1;
+   oldScr:=1;
+
+   If NumOfFiles = 0 then
+       begin
+       gotoxy(5,2);
+       textcolor(lightcyan);
+       write('No ');textcolor(cyan);write('files in this directory! ');
+       write('Press any key to continue');
+       k := readkey;
+       Exit;
+       end;
+
+   if numoffiles > buffersize then maxnum := buffersize
+     else maxnum := numoffiles;
+
+   for a:=1 to maxnum do Getfile(a, files[a]);
+
+   scrollfiles(1);
+   select(1);
+   status('Viewing Files [1..'+ToStr(NumOfFiles)+']' );
+   ShowLong(ScrIdx);
+
+    repeat
+      begin
+      repeat until keypressed;
+      k := readkey;
+      UnSelect(OldScr);
+
+      case k of
+
+   {Ntr} #13: selected := true;
+   {Esc} #27: donehere := true;
+         #0 :
+            case readkey of
+   { F1   }   #59:
+                   begin
+                   Help_file;
+                   scrollfiles(lowfile)
+                   end;
+   { ALT-E }  #18,#60:
+                   begin
+                   Show_Extended(ScrIdx);
+                   end;
+   { ALT-C }  #46:
+                   begin
+                   files[ScrIdx].passwd[1] := 0;
+                   files[ScrIdx].passwd[2] := 0;
+                   files[ScrIdx].passwd[3] := 0;
+                   writefile(CurFileIdx, Files[ScrIdx]);
+                   putfile(ScrIdx);
+                   end;
+   { PGDN }   #81: begin
+                   if CurFileIdx + Maxnum +(Maxnum-ScrIdx) < NumOfFiles then
+                     begin
+                     Lowfile := Lowfile + Maxnum;
+                     CurFileIdx := LowFile + ScrIdx;
+                     end
+                   else
+                       begin
+                       CurFileIdx := NumOfFiles;
+                       ScrIdx := MaxNum;
+                       if NumOfFiles = Maxnum then
+                         LowFile := 1
+                       else
+                         LowFile := NumOfFiles - MaxNum;
+                       end;
+
+                   For A:=1 to Maxnum do GetFile(LowFile+A-1, Files[A]);
+                   ScrollFiles(LowFile);
+                   end;
+
+   { PGUP }   #73: begin
+                   If CurFileIdx-Maxnum-ScrIdx > 0 then
+                     begin
+                     LowFile := LowFile - Maxnum;
+                     CurFileIdx := LowFile + ScrIdx - 1 ;
+                     end
+                   else
+                     begin
+                     CurFileIdx := 1;
+                     ScrIdx := 1;
+                     LowFile := 1;
+                     end;
+                   For A:=1 to Maxnum do GetFile(LowFile+A-1, Files[A]);
+                   ScrollFiles(LowFile);
+                   end;
+
+   { HOME }   #71: if CurFileIdx > 1 then
+                     begin
+                     LowFile := 1;
+                     ScrIdx := 1;
+                     CurFileIdx := 1;
+                     For A:=1 to MaxNum do GetFile(A, Files[A]);
+                     ScrollFiles(LowFile);
+                     end;
+
+   { END }    #79: If CurFileIdx < NumOfFiles then
+                    begin
+                    CurFileIdx := NumOfFiles {- 1} ;
+                    ScrIdx := MaxNum;
+                    if MaxNum = NumOfFiles then LowFile := 1
+                    else LowFile := NumOfFiles - MaxNum ;
+                    For A:=1 to Maxnum do GetFile(LowFile+A-1, Files[A]);
+                    ScrollFiles(LowFile);
+                    end;
+   { DOWN }   #80:
+                   if CurFileIdx < NumOfFiles then
+                    begin
+                    Inc(CurFileIdx);
+                    Inc(ScrIdx);
+                    if ScrIdx > MaxNum then
+                      begin
+                      For A:=1 to MaxNum-1 Do Files[A] := Files[A+1];
+                      GetFile(LowFile+MaxNum, Files[MaxNum]);
+                      Inc(LowFile);
+                      ScrIdx := MaxNum;
+                      ScrDn;
+                      end
+                    end;
+   { UP }     #72:
+                if CurFileIdx > 1  then
+                   begin
+                   dec(CurFileIdx);
+                   dec(ScrIdx);
+                   if (ScrIdx < 1) and (LowFile > 1) then
+                    begin
+                    Dec(LowFile);
+                    ScrIdx :=1;
+                    For A:=Maxnum Downto 2 do Files[A] := Files[A-1];
+                    GetFile(LowFile, Files[1]);
+                    ScrUp;
+                    end;
+                  end;
+              end; { case of #0/x codes }
+         end;
+
+       select(scridx);
+
+       oldscr:=scridx;
+
+       Showlong(ScrIdx);
+
+       if selected then
+         begin
+
+         Status('Editing short description of File '+CaseStr(Files[ScrIdx].Name));
+
+         Edit_Short;
+
+         Status('Editing long description of File '+CaseStr(Files[ScrIdx].Name));
+         Edit_Long;
+
+         writefile(CurFileIdx, Files[ScrIdx]);
+         Selected := false;
+         status('Viewing Files [1..'+ToStr(NumOfFiles)+']' );
+         end;
+
+     end;
+
+   until donehere;
+
+   Close_file_dir;
+
+   end;
+
+procedure ParseParam;
+  { DIRED /pd:\sl-test /l25 /b /f}
+  var idx : integer;
+      d   : boolean;
+      t   : string;
+      s   : string;
+      a   : integer;
+      l   : string;
+
+  begin
+  d := false;
+  idx := 0;
+  DirectVideo := True;
+  buffersize := 25 - 4;
+  FastLoadFiles := false;
+
+  if Paramcount = 0 then
+     begin
+     Buffersize := 21;
+     PathToConfig := '';
+     end
+  else
+     begin
+     repeat
+        begin
+        inc(idx);
+        if Idx <= ParamCount then
+         begin
+         s := paramstr(idx);
+         for a := 1 to ord(s[0]) do s[a] := upcase(s[a]);
+         t :=  S[1] + S[2]  ;
+          if T = '/P' then
+                begin
+                if s = '/P' then
+                   PathToConfig := ParamStr(idx+1)
+                else PathToConfig := copy(paramstr(idx),3,ord(s[0])-2);
+                end;
+          if  t = '/L' then
+                begin
+                if s = '/L' then
+                   begin
+                   L := paramstr(idx+1);
+                   end
+                else
+                   begin
+                   L := copy(paramstr(idx),3,ord(s[0])-2);
+                   end;
+                if L = '25' then buffersize := 25 - 4;
+              { if L = '40' then buffersize := 40 - 4; }
+                if L = '43' then buffersize := 43 - 4;
+                if L = '50' then buffersize := 50 - 4;
+                end;
+
+          if t = '/B' then  DirectVideo := False;
+          if t = '/F' then  FastLoadFiles := true;
+         end { idx < para.. }
+         else d := true;
+        end; { repeat.. }
+     until d;
+
+     if PathToConfig <> '' then
+       if PathToConfig[ord(PathToConfig[0])] <> '\' then
+         PathToConfig := PathtoConfig + '\';
+
+     end;
+
+  end;
+
+
+var  done  : boolean;
+
+begin
+
+   Ansi := True;
+   CapsOn := false;
+
+   textbackground(black);
+   FilePtrRoot := nil;
+   FileDirRoot := Nil;
+
+   Origtextmode := lastmode;
+
+   ParseParam;
+
+   case BufferSize of
+       43 - 4: Newtextmode := Co80+Font8x8;
+       50 - 4: NewTextMode := Co80+Font8x8;
+       25 - 4: NewTextMode := Co80
+       else    NewTextMode := OrigTextMode;
+       end;
+
+   if NewTextMode <> OrigTextMode then TextMode(NewTextMode);
+
+   clrscr;
+
+   Init_Config ( Closed );
+
+   if Cfg.Version < 215 then arg(1, 'Wrong version of Config.Sl2!');
+
+   Get_Dir_Names;
+
+   repeat
+       begin
+
+       Choose_Dir(done);
+       if done <> true then Proc_Dir;
+
+       end;
+   until done;
+
+   if NewTextMode <> OrigTextMode then TextMode(OrigTextMode);
+
+   cursoron;
+   normvideo;
+   clrscr;
+
+end.

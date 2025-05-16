@@ -1,0 +1,188 @@
+AntiBody - Upload Virus Scanner / Compression Convertor for SLBBS
+           (c) copyright 1993 by Zak Smith All Rights Reserved
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+  AntiBody is distributed in a DEMO mode, in which it will only process
+  any files if the current user is the SYSOP.  I have done this because
+  I feel it allows for adequate evaluation.  If the current user is the
+  SysOp, AntiBody will function fully.
+
+  If you wish to use AntiBody to its full ability, you must register it
+  by paying $20. In return you will then receive a small KEY file which 
+  contains your SLBBS registration number and your BBS name.  This file
+  will allow you to run all future versions of AntiBody also.
+
+  AntiBody has performed correctly on the author's machine for well over
+  two months,  and has no  known bugs,  but I (Zak Smith) cannot be held 
+  responsible for any damage to data, software, or hardware.
+
+Ä´ What it Does ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ * Un-Archives files of *ANY* format
+ * Recognizes Self-Extract archives of *ANY* format
+ * Scans files in archive for viruses
+ * Checks to make sure File does not allready exist for Batch Uploads
+ * Checks to make sure the file in the new archive format does not exist
+   (ex: file.ARC is rejected if it would be converted to file.ZIP)
+ * Converts all recognized archives to *ANY* format
+ * Recognizes GIF87a graphics file format
+ * Optionally Adds Video Mode or Resolution to GIF descriptions
+ * Preserves file descriptions when converting archives
+ * Kills corrupted archives
+ * Rejects Files matching Filespecs (including wilcards) in text file
+ * Moves files with viruses to a special directory
+ * Informs user of progress while processing
+ * Keeps a detailed log file
+ * Has been tested with SLBBS v2.25
+ * Has a neat local screen interface :)
+
+Ä´ Quick Setup ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ - Create a directory called ANTIBODY off your main SLBBS directory.
+         MD \SLBBS\ANTIBODY
+
+ - Put all the files in the ANTIBxxx.a_Z archive in this directory.
+   ('xxx' is version number, 'a' is revision code)
+
+   If you are running more than one node, create a directory for each
+   node under the directory which contains that node's CONFIG.SL2 and 
+   copy ANTIBODY into each.
+
+ - Make sure you have PKUNPAK.EXE, ARJ.EXE, LHARC.EXE, ZOO.EXE, PKUNZIP.EXE,
+   PKZIP.EXE, and SCAN.EXE in the PATH.
+
+ - Add to SLBBS's CONFIG as 'Upload Autodoor' 
+
+  Upload Autodoor
+
+   1. Command ....................... ANTIBODY.EXE
+   2. Directory Path ................ \SLBBS\ANTIBODY\
+   3. Communications Support ........ None
+   4. Abort Method .................. None
+   5. Write Protection .............. No
+
+ Note:
+   This default setup assumes that ANTIBODY is a "child" directory of 
+   the one which contains CONFIG.SL2. 
+   (AntiBody resides in \SLBBS\ANTIBODY, and Config.SL2 is in \SLBBS)
+
+ - Adding Files to Reject file list.
+    With a text editor, such as Qedit, or the 2-SysOp/TextEdit edit
+    a file in the AntiBody directory named REJECT.LST.  Each line should
+    be a filespec to reject.  See REJECT.LST included for examples.
+    Wild Cards are allowed, and work like "smart" wilcards.
+     ie: *h*.zip matches ghi.zip
+
+Ä´ How to Evaluate AntiBody ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+  The easiest (and most realistic way) to evaluate AntiBody is to call
+  from another computer as SYSOP and upload something and watch it work.
+
+  If you do not have access to another modem, you can use AntiBody in a
+  local mode.  Login locally to SLBBS and then press ALT-X to exit. Next,  
+  copy some files into the UPLOADS.BBS directory which is located off of
+  your main SLBBS directory containing the CONFIG.SL2.  Now go to the
+  ANTIBODY directory and just type ANTIBODY, and it will process the files.
+
+Ä´ Going Further ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+   If you are still using SLBBS v2.15 (or any version without the upload
+   autodoor), read the file, AB-SL215.DOC, which explains how to stop
+   the use of the internal Xmodem protocols in SLBBS.
+
+ Archive Program Configuration
+
+   Compression and Decompression program configuration is kept in
+   ARCHIVE.CFG.  This file should be in the main ANTIBODY directory.
+
+   The format of it is as follows..
+
+     ; format to convert TO
+     ;
+     ToArc: ProgID, Program,  Parameters
+     ;
+     ; Normal Archive Formats
+     ;
+     Un: ProgID,  Program,         Parameters,      Compression ID Block
+     ;
+     ; Self Extract Formats
+     ;
+     UnSfx: ProgID, Program, Parameters,  Compression ID Block
+
+   Examples are in ARCHIVE.CFG included in this archive.
+
+
+Ä´ Options ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ AntiBody needs no command line parameters, it only requires that it be
+ run from it's "home" directory.  Executing with the single command line
+ parameter CONFIG will invoke AntiBody's self-configuration mode.  
+
+ This will be displayed...                 Meaning...
+ 
+                  Path to CONFIG.SL2 ..\
+                    Path to AntiBody .\
+                  Path for Bad files .\BADFILE\
+            Scan Subboards for Dupes TRUE
+               Use Split Screen Mode TRUE
+  Graphics info for GIF descriptions VideoMode
+ *  GIF resolution at Start of Desc. TRUE
+
+   The last line (marked with *) will only be displayed if the one before it
+   is set to "Resolution".
+
+   Setting "Scan Subboards for Dupes" to TRUE or YES will enable AntiBody
+   to scan all the file subboards for a duplicate filename.  A duplicate
+   may occur when a user uploads more files than he entered filenames
+   for in a batch upload (and SLBBS doesn't check afterwards).
+
+   If you are having video troubles, set "Split Screen Mode" to FALSE
+   or NO.  Split Screen mode will be disabled automatically if it
+   senses DESQview is active, because split screen mode creates the
+   dreaded "Error #13" under DESQview.
+
+   If you have "Graphics info for GIF descriptions" set to VideoMode,
+   AntiBody will add the video mode of the file to the beginning of the
+   description, based of number of colors.  Here are the codes.
+
+     S: SuperVGA - More than 16 colors -or- Image larger than 640x480
+     V: VGA      - More than 16 colors
+     E: EGA      - More than 4 colors
+     C: CGA      - 4 or less colors
+
+  If you have "Graphics info for GIF descriptions" set to Resolution,
+  you will have the Choice to put the Resolution at the beginging
+  of the description, or at the end of the last line of the description.
+  Here is the general format of a resolution code.
+
+   WWWxHHHxCCC where WWW is width, HHH is height, and CCC is number of colors
+
+  This default setup    ÃÄ SLBBS ÄÄÄÄÄÄÄÄ¿
+  would work in a directory structure    ÃÄ ANTIBODY Ä¿
+  like this if AntiBody was executed from             ÃÄÄÄÄÄ BADFILE
+  \SLBBS\ANTIBODY
+
+ Note: AntiBody's "home" directory and the path for Bad files should be
+       on the same drive.  If not, the virus infected files will simply
+       be deleted, not moved to the Bad directory.
+
+Ä´ What it Requires ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ AntiBody needs to find SCAN.EXE in your PATH statement.
+
+ AntiBody requires a FOSSIL driver, such as X00 or BNU, to be active
+ in memory.
+
+Ä´ Acknowledgements ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ Searchlight BBS (c) by Searchlight Software and Frank LaRosa.
+ Turbo Pascal (c) by Borland Int., with which this program was written.
+
+Ä´ Bug Reports / Problems ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ      
+ Please! Contact me on my BBS, Sirius Cybernetics, or the Searchlight Support 
+ BBS which Frank LaRosa runs, or via FidoNet or SL_NET Netmail.
+
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ Zak Smith - Sirius Cybernetics - 414-966-3552 - 1:154/736 - 250:200/736
+                                              zak.smith@xanadu.mil.wi.us
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ

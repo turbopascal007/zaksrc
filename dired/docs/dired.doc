@@ -1,0 +1,101 @@
+Dired - the file directory editor for the Searchlight BBS System v2.25+.
+
+Dired (C) Copyright 1992 by Zak Smith all rights reserved.
+-------------------------------------------------------------------------------
+I am distributing DirEd free of charge because I feel there is a need for
+freely available, quality software (not to mention that some people are 
+asking money for _really_ cheesy programs).
+-------------------------------------------------------------------------------
+Use at your own risk!  I will not take blame if DirEd eats your computer!
+-------------------------------------------------------------------------------
+
+DirEd now requires about 91k free ram to run.
+
+I have tried to make the program as self-explanatory as possible.  The only
+thing you might need to get started is the optional command line parameters.
+
+Command Line Parameters: (optional)
+   DIRED /p <path> /l <xx> /b /f
+     <path> - path to CONFIG.SL2 <not needed if CONFIG.SL2 is in current dir>
+     <xx>   - number of lines per screen.  used for EGA and 
+              VGA systems that are running in one of the
+              following modes:
+                25 lines <default>
+                43 lines <ega>
+                50 lines <vga>
+     /b     - Use bios calls instead of direct screen writes.  This 
+              option makes the screen updates much slower, but it may
+              be useful if you are running in DESQview.
+     /f     - This does not update the status line when scanning the
+              file directories.  I added this so that if you are using
+              Dired remotely, it will not take so long to scan, because
+              it will not update the screen as much.
+
+Directory Screen:
+    Use Up, Down, Home, End keys to move through list of directories.
+    ESCAPE will exit the program. ENTER (or RETURN) will open the 
+    directory that the scroll bar is on, and then it will scan the directory.
+
+File Screen:
+    Use Up, Down, Page Up, Page Down, Home, and End keys to move around in
+    the file listing.  The Enter (or Return) key will edit the current file's
+    description.  If you leave the first line of the extended description 
+    blank, then you will not get a chance to edit the second line, and
+    it will be blanked. Escape will exit to the Directory Screen.  An
+    ASCII #249 (a dot in the middle of the character block) means that there
+    is an extended description associated with that file.  The * and the +
+    after the file names are the same as in Searchlight.  ALT-C will CLEAR
+    the password (if any) for the current file..  ALT-E or F2 will show who
+    uploaded the file, when, it's size in bytes, and how many times it has
+    been downloaded.  ALT-P will let you update a password on a file..
+
+Limitations:
+    Dired can handle a maximun of 5,000 files in any directory.  (It does
+    not matter if you have more than 5,000 in several direectories added
+    together, as Dired only processes one directory at a time.)  Dired 
+    can handle a maximum of 200 file directories.  
+        These can be expanded in later versions if needed.  I have *NOT* 
+    tested Dired on directories which are close to the limit, 5,000.
+    The highest number of files I *HAVE* tested is about 1050, which is 
+    probably less than the number you have in any single on of your 
+    directories. Because of the file handling procedures, it *MAY* run out 
+    of stack space when loading VERY large directories, but this should 
+    not be a problem.
+        
+Error Handling (..or not..):
+    If Dired encouters an error while trying to open or read any of the
+    system files, it should clear the screen and produce a message that
+    says something like: 
+      ERROR 2: Program Terminated: Error opening/reading CONFIG.SL2
+    If a non-file related error occurs, the program should terminate
+    and produce an error message like the following:
+      Run-Time error nnn at xxxx:yyyy
+    If this happens, remember the nnn code, and what you were doing right
+    before it crashed.  Somehow, try to get this information to me.  This 
+    is the only way I will be able to fix the error.
+
+-[ Version History ]-----------------------------------------------------------
+1.11 - 09/12/92 - Fixed a few bugs in the file listing..
+                  DirEd also now will automatically detect how many rows are
+                  on the screen (for instance, vga 50, ega 43, vga 28, etc..)
+                  and use all of them.
+                  Also added Password Modification function (alt-p)
+
+1.10 - 09/06/92 - Updated all file handling routines with my new ones..
+                  These are much more reliable and will not grunge your
+                  directories.
+
+1.02 - 05/13/91 - Added the F2/ALT-E and ALT-C functions.  Also further
+                  reduced stack requirements for scanning the file dir
+                  to only 12 bytes per level.
+
+1.01 - 05/11/91 - Same Day!  Reduced stack requirements for scanning the
+                  file dir by about 600 bytes per level.  (only a 2 line
+                  source change.. I might add..)
+
+1.00 - 05/11/91 - First release ..
+-------------------------------------------------------------------------------
+DirEd was written using no outisde function libraries.
+-------------------------------------------------------------------------------
+Zak Smith - 414-966-3552 - [fidonet 1:154/736] - [slnet 250:200/736]
+zak.smith@mixcom.com

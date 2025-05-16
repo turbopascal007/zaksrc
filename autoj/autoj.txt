@@ -1,0 +1,47 @@
+AUTOJ - The Subboard Joiner.
+
+AUTOJ (c) 1991 by Zak Smith all rights reserved.
+-------------------------------------------------------------------------------
+So far all my utilities (PUSHIGH,DIRED,QUOTIL,LISTFILE to name a few...) have 
+been free.  This may or may not change.  Support your programmers and they
+will support you.
+-------------------------------------------------------------------------------
+USE THIS AT YOUR OWN RISK!  Although AUTOJ has been tested for over a month
+on the Author's BBS, and one "beta" site, there might be bugs which would
+cause AUTOJ to grunge data files.
+
+Suggestion -> Make a backup of your files before you install this.
+-------------------------------------------------------------------------------
+Many people in the SEARCHLIGHT fidonet echo have said that you wanted 
+something that would automagically join users to subboards.
+
+AUTOJ needs the CONFIG.SL2 for the current node in the current directory.
+
+Syntax.
+ AUTOJ Subname User Name
+       |       |
+       |       +---  User's name to join.  FRED FARMER would be ok, 
+       |             as would WINNIE THE POOH and FRANK
+       +-----------  Name of the subboard.
+
+  All parameters are required.
+
+To process more than one dir "at a time" do this in batch file
+
+FOR %%A in (subname subname subname) DO AUTOJ %%A user name
+
+this would work...
+ for %%a in (local general teen tech sl_prog) do autoj %%A zak smith
+
+...and for command line use, change the %%A to a %A.
+
+If you dont understand that, look in your DOS manual under 
+Batch Commands/FOR. OR just go like..
+
+AUTOJ local fred
+AUTOJ adult fred
+etc..
+
+-------------------------------------------------------------------------------
+Zak Smith - Sirius Cybernetics - 414-966-3552 - 1:154/736 - 250:200/736
+

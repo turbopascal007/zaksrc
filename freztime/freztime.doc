@@ -1,0 +1,15 @@
+FrezTime - (c) copyright 1992 by Zak Smith all rights reserved
+
+ this makes a user be able to use a door "free" of time limits..
+
+ in a batch file do this..
+ 
+ ------
+  freztime SET
+    .. run door here ..
+  freztime
+ -------- (exit to SL here..)
+
+ it must be run in the same directory both times..
+
+- Zak

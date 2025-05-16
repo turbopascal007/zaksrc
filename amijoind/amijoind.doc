@@ -1,0 +1,23 @@
+AmIJoinD - (c) copyright 1992 by Zak Smith all rights reserved, etc...
+
+ History. . .   
+   v1.04  - Hopefully fixes the "internal program error"
+            also now abides the "Subboard Visible" flag
+
+   v1.03  - Fixed the "close-subboard-names-error" (fred-1,fred-2)
+
+   v1.02  - Fixed a small data assignment error...
+
+   v1.01  - If user is in ansi mode, it highlights the subboards, and other-
+            wise uses a '*' still.
+
+ Simply run AmIJoinD from the directory containing CONFIG.SL2 and it will
+ do the rest.  It pays attention to attributes & access levels.
+
+ You can install it as a door using the above procedure, or you can install
+ it as an extension of the 1-Member command.  I included my MEMBER.MNU 
+ (renamed to SEE-ME.MNU for safety)  Take a look at it with MENU.EXE and
+ that should be enough to get you started.
+
+414-966-3552, 250:200/736, 1:154/736
+  

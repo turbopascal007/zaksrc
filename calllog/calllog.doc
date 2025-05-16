@@ -1,0 +1,12 @@
+CallLog.
+
+lists users like User/CallLog command does, but doesn't write the times.
+
+syntax
+ CallLog.Exe [Num]
+
+where [Num] is an optional parameter which tells it how many users to list.
+default is 75
+
+- Zak Smith, 414-966-3552 bbs, 1:154/736, 250:200/736
+

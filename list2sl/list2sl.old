@@ -1,0 +1,60 @@
+Uses Dos,Crt,SlFGen,SlFiles,Etc;
+
+var textfile : text;
+    curline  : string;
+
+    Dir      : DirType;
+
+
+procedure procline;
+  var fn:string[12];
+      fd:string[40];
+      rn:longint;
+
+  begin
+  fn:=rtrim(copy(curline,1,12));
+
+  delete(curline,1,27);
+
+  fd:=curline;
+
+
+  write('Processing ',fn);
+
+  rn:=fileinsldir(fn,'uploads','e:\',false);
+
+  if not(rn=0) then
+    begin
+
+    read_dir(rn,dir);
+    dir.descrip:=casestr(fd);
+    write_dir(rn,dir);
+
+    writeln(' in slbbs: ',fd);
+    end
+  else writeln(' ..not in slbbs!');
+
+  end;
+
+begin
+
+assign(textfile,'e:\xfer5k.txt');
+reset(textfile);
+
+Open_dir('e:\','uploads');
+read_dir_genhdr;
+read_dir_hdr;
+
+
+readln(textfile,curline);
+while not eof(textfile) do
+   begin
+   procline;
+   readln(textfile,curline);
+   end;
+
+
+close_dir;
+close(textfile);
+
+end.

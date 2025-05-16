@@ -1,0 +1,18 @@
+ AdDesc - A little utility that adds a line of text to all descriptions in
+          a directory... 
+
+ Use at your own risk, etc.!
+
+ syntax ..
+    AdDesc PATH DIRNAME TEXT 
+             
+     PATH      = path to the dir file     (ex: d:\slbbs\dir\)
+     DIRNAME   = the directory name       (ex: OFFLINE)
+     TEXT      = the text you want added  (ex: This File is Offline!)
+
+ AdDesc will use Direct Screen writes for speed only if SLBBS is not active
+ in memory.
+
+ Oh -- Addesc.exe can be LZEXE'd if you like..
+
+ AdDesc (c) copyright 1992 by zak smith all rights reserved, etc..

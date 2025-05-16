@@ -1,0 +1,61 @@
+Zak Smith, Oct 6, 1995.
+
+I restructed the zipfile to make sure everything was happy.
+If you use this, *please* email me.
+
+Zak Smith, Feb 19, 1995
+email: smithz@cae.wisc.edu
+
+I do not see myself doing any programming for SL in the future, and I haven't
+touched any of my source code in 1.6 years.   Someone asked about possibly
+buying the source for one of my programs, but I just decided to give it
+out free.
+
+So here's the deal:  included in the file FILES.ZIP is the source tree for
+all my programs.  Units are in the \UNITS and the \UNITS.OO directory.
+
+Unzip files.zip with the -d switch (I think) to expand the directory
+structure.  If you don't, the files will be in an unintelligible mess.
+
+I am not offering any support with these source files, but I will answer
+questions as best I can via email only.
+
+You are welcome to use the source code however you want, but I'd appreciate
+the following 2 things:
+  . don't charge anything for the util
+  . send me email telling me about it
+
+Notes on the source: I wrote a lot of my stuff before Frank had a decent
+SLTPU library (and license) available, so I wrote my own units, and many
+of my programs use them.    I have several different versions of my
+interface, so you might want to familiarize yourself with each before
+you try to decode what's going on.  I think all of them should still compile
+to their last version from what's included, although I haven't tested
+any of them.
+
+As I said, I will reply to email, so if anything's missing or you have
+questions, I'll try to answer them.
+
+this file should be available on the WWW:
+http://bytor.engr.wisc.edu/~zak/zaksrc.zip
+
+Have fun,
+  - Zak
+
+
+ok, well Tim Rossiter said they couldn't put the file online
+because the string "do not distribute" existed in the files..  never
+mind that those are kind of meaningless now..
+
+anyhow, i cleverly changed all the "do not distribute"'s to
+"do XXX distribute"   
+
+i hope this makes all you guys happy...  i'm not going to call the SL supp
+bbs and upload it again on my dime, so someone might want to take
+it from here (http://bytor.engr.wisc.edu/~zak/zaksrc.zip) and put
+it online.
+
+have a day.
+zak
+
+

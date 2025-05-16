@@ -1,0 +1,81 @@
+Listfile - An improved replacement for SLDIR
+
+Listfile (C) copyright 1991 by Zak Smith All Rights Reserved.
+----------------------------------------------------------------------------
+Credit - SLDIR was written by Frank LaRosa of Searchlight Software.
+----------------------------------------------------------------------------
+Version History 
+ 1.04 - changed the format of the local headers
+        formally added the $ function for FAST! file output
+
+ 1.03 - fixed a justify error, also should work with more files
+
+ 1.02  - Added NDLC and ONE functions.
+
+ 1.01  - Fixed a date stamp bug
+
+ 1.00  - Initial Release
+
+----------------------------------------------------------------------------
+Listfile works with the same command line switches as SLDIR, with
+one exception.  Here is a summary...
+
+Listfile [access] [/dirname] [-dirname] [=string] [!NOT] [NDLC] [ONE]
+         [$file]
+
+  $file      - name of the outout file (ex: $AllFiles.Lst)
+
+  access     - lowest access to scan dirs
+
+  /dirname   - scan only these dirnames
+
+  -dirname   - do not scan these dirs
+
+  =string    - search for this string in filename,and all descriptions
+
+  !NOT       - do not provide any header information in file
+                 (useful for scanning for a string)
+
+  NDLC       - No DownLoad Counters.  Strips the times downloaded from the 
+               listing.
+
+  ONE        - Puts the whole description, including extended, on the same 
+               line as the file name.  This extends the text file produced
+               beyond 80 columns.  
+
+----------------------------------------------------------------------------
+LISTFILE.TXT - this file is optional, if it exists in your text file
+               directory (per CONFIG.EXE), it will be included before
+               the directory listing.
+---------------------------------------------------------------------------
+ If you are having troubles, here is the logic that decides whether
+ to list the particular dir or not..
+
+  If (
+     access of dir is higher than specified, and
+     it's not in the exclude list, and
+     there is no include list or it's in the include list
+     )  - OR -
+     it's in the include list
+
+ This seemed the most logical way to do things..
+----------------------------------------------------------------------------
+Examples..
+----------------------------------------------------------------------------
+d:\slbbs> listfile /games /fishing
+  ...scans games and fishing
+
+d:\slbbs> listfile 30
+  ...scans all that require 30 or higher access
+
+d:\slbbs> listfile 5 -games -graphics
+  ...scans all that require access of 5 or higher, but not games or graphics
+
+d:\slbbs> listfile 50 =searchlight !not
+  ...scans all that require access of 50 or higher,
+      and include "Searchlight" somewhere in the file description,
+      without the directory headers.
+----------------------------------------------------------------------------
+Zak Smith - Sirius Cybernetics BBS - 414-966-3552 - 1:145/736
+----------------------------------------------------------------------------
+

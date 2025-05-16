@@ -1,0 +1,33 @@
+
+ Now you are probably thinking "What about those users who use Xmodem?"
+
+   Well, I have a solution for that also. 
+
+   First, use XSYS and MSYS and a text editor to change the text in
+   STRINGS.SYS that say "Xmodem", "Xmodem/CRC", and "Xmodem/1K" to
+   "<unassigned>". The result should look like this
+
+   xxxx '<unassigned>'
+   xxxx '<unassigned>'
+   xxxx '<unassigned>'
+
+   (xxxx would be the line number)
+
+     If you do not know how to use XSYS and MSYS then you should use these
+     commands:
+      XSYS STRINGS.SYS > STRINGS.TXT
+      ( edit STRINGS.TXT here )
+      MSYS STRINGS.TXT STRINGS.SYS
+  
+   Now, all you have to do is make sure no users have these 3 protocols 
+   selected.  To do this, you must run NOTXMDM.EXE in your AutoLogin Door.
+   Add this line into your AutoLogin door. (your batch file or AutoDoor
+   section in CONFIG)  It must be run from the directory containing the
+   CONFIG.SL2 for that directory.
+ 
+     NOTXMDM X
+
+   Where X is the protocol number you want them to have.  I have my 12th
+   external protocol as XModem (using the DSZ protocol driver), so my line
+   is: NOTXMDM 12
+

@@ -1,0 +1,49 @@
+
+AntiBody - Upload Virus Scanner / Compression Convertor for SLBBS
+           (c) copyright 1992 by Zak Smith All Rights Reserved
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+Ä´ What it Does ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ * Un-Archives files of *ANY* format
+ * Recognizes Self-Extract archives of *ANY* format
+ * Scans files in archive for viruses
+ * Checks to make sure File does not allready exist for Batch Uploads
+ * Checks to make sure the file in the new archive format does not exist
+   (ex: file.ARC is rejected if it would be converted to file.ZIP)
+ * Converts all recognized archives to *ANY* format
+ * Recognizes GIF87a graphics file format
+ * Optionally Adds Video Mode or Resolution to GIF descriptions
+ * Preserves file descriptions when converting archives
+ * Kills corrupted archives
+ * Rejects Files matching Filespecs (including wilcards) in text file
+ * Moves files with viruses to a special directory
+ * Informs user of progress while processing
+ * Keeps a detailed log file
+ * Has been tested with SLBBS v2.25
+ * Has a neat local screen interface :)
+
+Ä´ Other Information ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÁÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ As of this version, it requires a FOSSIL driver such as X00 or BNU.
+
+ Uses an archive program definition text file that allows the addition of 
+ any other archive programs.  Number of formats limited only by available
+ memory.
+
+ Allows a text file of filespecs to reject.  Current limit is 40 filespecs;
+ but I can add more easily if anyone needs more.
+
+ The distributed demo version operates fully when current user the SYSOP.
+ (for evaluation)  A registered, fully functional version is available
+ (of course) {see documentation}.
+
+ Current release is version 1.02b (revision b). 
+ Filename: ANTIB102.B_Z
+                    ³ ÀÄÄÄ ZIPfile
+                    ÀÄÄÄÄÄ Revision code
+
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+ Zak Smith - Sirius Cybernetics - 414-966-3552 - 1:154/736 - 250:200/736
+ÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+

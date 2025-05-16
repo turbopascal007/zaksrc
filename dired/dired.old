@@ -1,0 +1,1779 @@
+{ Dired (c) copyright 1991 by Zak Smith all rights reserved          }
+
+Program DIRED;
+
+Uses Dos, Crt, Etc;
+
+{ $R- }               { Range checking }
+{ $S- }               { Stack checking }
+{ $M 16384,0,655360 } { Default Stack  }
+
+type FileHeader = record      { header info on file }
+       version: word;              { version of unit that created file }
+       recsize: word;              { record size }
+       offset: longint;            { offset to 1st record }
+       nextfree: longint;          { next free record }
+     end;
+
+     RecordHeader = record    { control header to records }
+       mark: byte;                 { FF to indicate deleted rec }
+       extra: byte;
+       next: longint;              { ptr to next free rec }
+     end;
+
+     TreeRootType = record     { root info for tree/list type files }
+       treeroot: longint;      { root of tree }
+       listroot: longint;      { linked list root }
+       entries: longint;       { # of entries }
+     end;
+
+     TreeLeafType = record     { leaf info for tree/list type files }
+       status: byte;           { 0=active, 255=deleted }
+       left,right: longint;    { pointers to child nodes }
+       last,next: longint;     { linked list ptrs }
+     end;
+
+
+     BlockFileType = record        { ram file info }
+       filevar: file;              { dos file var }
+       open: boolean;              { set if file is open }
+       lock: integer;              { file lock count }
+       recsize: word;              { record size }
+       offset: longint;            { offset to 1st record }
+       header: fileheader;         { header info }
+       hlock: integer;             { header locked? }
+     end;
+
+
+
+const logsize   =  75;  { size of last caller log }
+      chatsize  =   4;  { chat queue size - 1 }
+      ulistmax  =  50;  { upload list size }
+      maxproto  =  15;  { number of external protocols }
+
+
+const { Message File Constants }
+      indexsize = 1024;       { size of index hash table }
+      blocksize = 250;        { text block size }
+
+
+const configspec  = 'CONFIG.SL2';   { Configuration Info }
+      nodesspec   = 'NODES.SL2';    { Node Information }
+      userspec    = 'USER.SL2';
+
+      chatspec    = 'CHAT.SL2';     { Chat File }
+      logspec     = 'LOG.SL2';      { Caller Log }
+
+      subspec     = 'SUBBOARD.SL2'; { Subboard Definitions }
+      dirspec     = 'FILEDIR.SL2';  { UL/DL Directory Definitions }
+      doorspec    = 'DOORS.SL2';    { External Program Definitions }
+
+      msysspec: string[80]
+                  = 'STRINGS.SYS';  { Offline Message Strings }
+
+      ulistspec   = 'UPLIST.SL2';   { Batch Upload Description List }
+
+      configpath: string[60] = '';
+        { path to CONFIG file }
+
+
+Type  { -- Preliminary Type Definitions ------------------------------------ }
+
+     RSbaud = (B110,B150,B300,B600,B1200,B2400,B4800,B9600,B19200,B38400);
+     cmpresult = (Less,Equal,Greater);
+     comparefunction = function (p1,p2: pointer): cmpresult;
+
+     ansitype = (GENERIC,PROCOMM,STANDARD);
+     helplevel = (EXPERT,INTERMEDIATE,NOVICE);
+
+     IxType = (SEQ,UID,MAIL);
+       { index type, seqential/universal/mail }
+
+     filetype = (CONFIGF,NODESF,CHATF);
+     fileset = set of filetype;
+
+     timetype = record   { time }
+       hour: byte;
+       minute: byte;
+     end;
+
+     datetype = record   { date }
+       year: byte;
+       month: byte;
+       day: byte;
+     end;
+
+     pwtype = array[1..3] of byte;  { 3-byte password }
+
+     maillogtype = (MLOFF,MLON,MLTAP);
+
+     attribtype = 1..24;
+     attribset = set of attribtype;    { access attribute set A-X }
+
+     ExProtocol = record
+       name: string[40];      { protocol name }
+       sendcmd: string[72];   { send command }
+       rcvcmd: string[72];    { receive command }
+       extra: string[20];     { expansion room }
+     end;
+
+     ColorType = (NULLCOLOR,     { no color set }
+                  NORMAL,        { normal screen color for most i/o }
+                  INVERSE,       { foreground color for input highlighting }
+                  BACKGROUND,    { background color for input highlighting }
+                  COMCOLOR,      { color for command highlight }
+                  SUBCOLOR,      { subboard information }
+                  HEADCOLOR,     { color for headings }
+                  CHATCOLOR,     { chat mode color }
+                  SPECIAL,       { special prompts and messages }
+                  ERRCOLOR,      { error and warning messages }
+                  ALTCOLOR,      { alt. special color }
+                  PROMPTCOLOR ); { colour for prompts }
+
+     MsgType = record    { inter-terminal message }
+       from: integer;         { node where from }
+       name: string[25];      { name of sender }
+       message: string[73];   { text of msg }
+     end;
+
+     AutoDoorType = record   { automatic door }
+       command: string[60];
+       directory: string[60];
+       commtype: byte;
+       abort: byte;
+       writeprot: boolean;
+       extra: string[10];
+     end;
+
+     PortDefType = record   { COM port definition }
+       PortType: byte;        { type of port; 0=standard }
+       BaseAddress: word;     { base address }
+       IRQ: word;             { interrupt }
+       Num: byte;             { physical port number }
+       extra: string[7];      { extra bytes }
+     end;
+
+     AccessType = record   { access level set }
+       attrib: attribset;    { attributes }
+       msglevel: integer;    { message system access level }
+       filelevel: integer;   { file system access level }
+       ratio: byte;          { download:upload ratio }
+       timelimit: integer;   { daily time limit }
+       sesslimit: integer;   { per session time limit }
+       expiredate: datetype; { expiration date }
+     end;
+
+     AccessDefType = record
+       name: string[20];     { name of access level }
+       days: integer;        { # of days added to expiration date }
+       a: accesstype;        { access levels }
+     end;
+
+
+
+
+Type  { -- CONFIG, NODES and CHAT file types ------------------------------- }
+
+     configtype = record   { format of CONFIG file }
+
+       systemname: string[30]; { the name of the BBS }
+       sysopname: string[25];  { sysop's name }
+       node: integer;          { node number this node }
+       maxnode: integer;       { total number of nodes }
+       version: integer;       { version of SLBBS program in use }
+
+       progpath: string[45];   { path to program files }
+       altprogpath: string[45];{ alternate program path }
+       datapath: string[45];   { path to data files }
+       chatpath: string[45];   { path to chat.bbs }
+       textpath: string[45];   { path to text files }
+       incpath: string[45];    { path to user include files }
+       mailpath: string[45];   { path for MAIL.LOG files }
+       alogspec: string[45];   { activity log filespec }
+       flogspec: string[45];   { files log filespec }
+       logfile: string[45];    { default general log file }
+       sysfile: string[45];    { path/filename for pcboard.sys file }
+       defaultpw: string[45];  { default password for uploads }
+       presshard: byte;        { reserved }
+
+       curruser: longint;      { current user ID number }
+       currsub: string[8];     { current/last used message area }
+       currdir: string[8];     { current/last used file area }
+       lastdoor: string[45];   { current/last door menu executed }
+       logtime: timetype;      { time current user logged on }
+       laston: datetype;       { last logon date of current user }
+       remote: boolean;        { set if remote logon }
+       rsactive: boolean;      { set if rs port active }
+       baudrate: rsbaud;       { caller's actual effective baud rate }
+       errorfree: boolean;     { set if error free connect detected }
+       ansi: boolean;          { caller's ANSI graphics mode }
+       color: boolean;         { caller's color mode indicator }
+       timelimit: integer;     { caller's time limit for this session }
+       newlogon: boolean;      { set if main program not yet run }
+
+       sysavail: boolean;      { set if sysop is available }
+       sysopnext: boolean;     { set if sysop will be next login }
+       paged: boolean;         { set if sysop was paged }
+       superuser: boolean;     { set if superuser key (alt-s) pressed }
+
+       newusers: boolean;      { new user registration? }
+       reginfo: word;          { registration info to collect? }
+       minaccess: byte;        { min. access lev req. for login }
+       noquotes: boolean;      { set if Quotes are Off }
+       inithelp: helplevel;    { initial help level }
+       partreg: boolean;       { collect partial user info? }
+
+       comport: byte;          { com port to use }
+       bsupport: byte;         { baud rates supported }
+       initstr: string[45];    { modem 'remote' init string }
+       localstr: string[45];   { modem 'local' init string }
+       buffactor: integer;     { output buffer size }
+       bufferdoors: boolean;   { buffer DOOR output? }
+       modemmsg: boolean;      { true for modem msg baud detect }
+       flowcntrl: boolean;     { set for harware cts/dsr flow control }
+       lockedbaud: rsbaud;     { baud rate to lock modem at }
+       hardbreak: boolean;     { if set, bbs uses hard modem breaks }
+
+       directvid: boolean;     { direct screen/BIOS output switch }
+       dateformat: byte;       { desired date format }
+       timeformat: byte;       { desired time format }
+       payback: byte;          { upload time payback }
+       romcopy: boolean;       { set for ROM file copies }
+       userpriv: boolean;      { set if user lists are private }
+       PauseSource: byte;      { source for pause routine (dos/bios/ram) }
+
+       command: string[255];   { next command executed by slbbs.exe }
+       commtype: byte;         { next command type }
+       commdir: string[80];    { default dir for command }
+       wp: boolean;            { write protection for command }
+       abort: byte;            { abort type for command }
+       doorflag: byte;         { program to run on return from door }
+       keyflag: boolean;       { set if "press return" desired }
+       indoors: boolean;       { set if a doors menu is active }
+
+       relog: boolean;         { relog flag }
+       lastevent: integer;     { line number of last event }
+       lastday: byte;          { day last event executed }
+       nextevent: integer;     { time until next system event (-1=None) }
+       eventsoon: boolean;     { set if event scheduled after current session }
+       idletime: byte;         { idle time limit }
+
+       lastactive: boolean;    { set if lastuser currently logged in }
+       host: boolean;          { if set, return to DOS on logout }
+       hangup: boolean;        { if set, hang up after each call }
+       disablekeys: boolean;   { if set, hot keys are disabled }
+
+       AccessDef: array[1..25]
+         of AccessDefType;     { access level definitions }
+
+       Colorchart: array [NORMAL..PROMPTCOLOR]
+         of byte;              { color definitions }
+
+       PortDef: array[1..8]
+         of PortDefType;       { COM port setup info }
+
+       Ex: array[1..MaxProto]
+         of exprotocol;        { external protocols setup }
+
+       Autodoors: array[1..3] of autodoortype;
+
+       mainlevels: array[1..30] of byte;
+         { access levels for main menu }
+
+       fileslevels: array[1..30] of byte;
+         { access levels for files menu }
+
+       ftime: timetype;        { start of xfer time }
+       fdisc: char;            { disconnect from external xfer }
+
+       fileset: string[60];
+         { name of DIR file to use upon startup }
+
+       invis: boolean;         { Alt-I invisible switch }
+
+       extra: array[1..935] of boolean;
+
+     end;
+
+
+type nodetype = record    { NODES file }
+
+       syscalls: longint;      { record 0: total calls to system }
+       lastuser: longint;      { record 0: last user on the system }
+       lastquote: string[72];  { record 0: quote left by last user }
+
+       name: string[25];       { logged user's name }
+       id: longint;            { logged user's id }
+       stat: byte;             { logged user's chat status }
+       savestat: byte;         { saved status from door or ext. proto. }
+
+       extra: string[14];      { pad to 128 bytes }
+
+     end;
+
+
+type chattype = record      { CHAT.BBS file }
+
+       head,tail: byte;          { head, tail of msg queue }
+       msg: array[0..chatsize]   { up to four messages }
+         of msgtype;
+
+     end;
+
+
+
+{ -- USER file ----------------------------------------------------------- }
+
+
+type UserHeader = record       { file header info }
+       root: TreeRootType;       { tree root info }
+       pad: array[1..116] of byte;
+     end;
+
+
+     Usertype = record
+       Leaf: TreeLeafType;     { tree leaf info }
+
+       name: string[25];       { user's real name }
+       alias: string[25];      { user's alias name }
+       passwd: pwtype;         { password }
+       cksum: integer;         { checksum of name }
+
+       firston: datetype;      { date of first logon }
+       laston: datetype;       { date of last logon }
+       lasttime: timetype;     { time of last logon }
+       calls: longint;         { total number of calls }
+
+       location: string[20];   { user's location }
+       systype: string[15];    { system type }
+       phoneno: string[12];    { phone number }
+       extra: string[51];      { extra space }
+       subboard: string[8];    { current or last used subboard }
+
+       xproto: byte;           { default file xfer protocol }
+       logmail: maillogtype;   { log mail sent/rcv'd }
+       scrnsize: byte;         { screen size (0=continuous scroll) }
+       help: helplevel;        { help level }
+       ansimode: ansitype;     { default ANSI mode }
+
+       access: accesstype;     { access & time limits }
+       timeleft: integer;      { time left today }
+
+       uploads: longint;       { Kbytes uploaded }
+       ulcount: longint;       { File upload count }
+       downloads: longint;     { Kbytes downloaded }
+       dlcount: longint;       { File download count }
+
+       listformat: byte;       { file list format prompt/short/long }
+
+       pad: array[1..19] of byte;   { pad to 256 bytes }
+
+     end;
+
+
+
+{ -- Setup Files ------------------------------------------------------------ }
+
+type SetupHeader = record
+       root: TreeRootType;       { tree root info }
+       pad: string[116];         { header for subboard SETUP files }
+     end;
+
+     SetupData = record             { data for SETUP files }
+       Leaf: TreeLeafType;     { tree leaf info }
+       name: string[8];        { eight-char item name }
+       path: string[40];       { path to HDR/DIR file }
+       descrip: string[40];    { name of subboard/file area }
+       access: integer;        { access level required to use }
+       attrib: attribset;      { attributes required to read/join }
+
+       case integer of
+         1: (                { Subboards }
+         subsysop: string[25];   { subop's name }
+         echomail: boolean;      { echomail attrib for subboards }
+         postattrib: attribset;  { attributes required to post }
+         visible: boolean;       { subboard visible? }
+         pad: string[13]);       { extra bytes }
+
+         2: (                { Filedirs }
+         filepath: string[38];   { path to upload/download files }
+         readonly,
+         writeonly: boolean;
+         Free: word;
+         Value: integer;
+         display: boolean);      { subboard visible? }
+
+     end;
+
+
+
+{ -- Message Files ---------------------------------------------------------- }
+
+type SubType = record   { subboard header information }
+       access: integer;        { access level required to use subboard }
+       attrib: attribset;      { attributes required to read/join }
+       name: string[40];       { long sub board name }
+       subsysop: string[25];   { sub-sysop's name }
+       maxsize: longint;       { maximum number of msgs allowed }
+       maxmsglen: integer;     { max. message length }
+       anonymous: boolean;     { set if anonymous posts are allowed }
+       echomail: boolean;      { set if echomail on this subboard }
+       autokill: boolean;      { purge old messages automatically }
+       compress: boolean;      { set to compress message texts }
+
+       messages: longint;      { number of active headers }
+       nextid: longint;        { next MSG ID number }
+
+       firstmsg,
+       lastmsg: longint;       { first & last active msg by ID # }
+
+       orignode: word;         { originating node, for echomail }
+       orignet: word;          { originating net, for echomail }
+       origzone: word;         { originating zone, for echomail }
+       origpoint: word;        { originating point }
+
+       userjoin: boolean;      { set if users allowed to join }
+       postattrib: attribset;  { attributes required to post msgs }
+       visible: boolean;       { false hides subboard from list }
+
+       pad: string[14];        { pad to 128 bytes }
+
+     end;
+
+
+     IndexType = array [SEQ..UID,0..IndexSize-1]
+       of longint;           { index for sequential and uid values }
+
+
+     HeaderType = record        { message header }
+       status: byte;         { 0=header, 255=deleted }
+       id: array[SEQ..UID]
+         of longint;         { sequential and universal ID numbers }
+       next: array[SEQ..UID]
+         of longint;         { pointers to next headers if any }
+       txt: longint;         { pointer to start of text in text file }
+
+       from: string[25];     { text of sender's name }
+       fromid: longint;      { sender's user record, if local }
+       touser: string[25];   { text of receiver's name }
+       toid: longint;        { receiver's user record, if local }
+       subj: string[40];     { subject }
+
+       time: timetype;       { time recorded }
+       date: datetype;       { date recorded }
+       rd: longint;          { times read }
+       replies: longint;     { times replied-to }
+
+       ffrom: string[40];    { forwarded-from }
+       extra: string[19];    { extra heading information }
+
+       prot: boolean;        { purge protection }
+       logged: boolean;      { set if mail logged to disk }
+
+       lastseq,
+       nextseq: longint;     { next/previous sequential message }
+
+       lastthread,
+       nextthread: longint;  { next/previous threaded message }
+
+       topthread,            { first msg in this thread }
+       lastreply,            { last reply to this message }
+       replyto: longint;     { message to which this is a direct reply }
+
+       lastmail,
+       nextmail: longint;    { next/previous personal mail message }
+
+       attribute: word;      { echomail flags/attributes }
+
+       nextseqrec: longint;  { record # of next sequential msg }
+       nextmailrec: longint; { record # of next mail message }
+
+       pad: string[11];   { pad to 256 bytes }
+     end;
+
+
+     TextHeader = record     { header info for message file }
+       pad: string[127];
+     end;
+
+     TexType = record        { block of text from text file }
+       copies: byte;              { #of copies 255=deleted }
+       data: string[blocksize];   { block of text }
+       next: longint;             { pointer to next block }
+     end;
+
+
+     MembHeader = record      { header for member file }
+       root: treeroottype;
+       pad: string[116];
+     end;
+
+     MembType = record        { block data for member file }
+       Leaf: treeleaftype;
+       name: string[25];      { member's name }
+       firston: datetype;     { date joined this subboard }
+       laston: datetype;      { date last accessed this subboard }
+       lastread: longint;     { highest message read }
+       firstmail,
+       lastmail: longint;     { first/last personal message this subboard }
+       pad: string[66];
+     end;
+
+
+{ -- Log and Quotes Files ------------------------------------------------- }
+
+type logtype = record  { LOG file }
+       head: integer;
+       users: array[1..logsize] of record
+         id: longint;     { user ID # }
+         chksum: integer; { user checksum }
+         time: timetype;  { time of login }
+         date: datetype;  { date of login }
+       end;
+     end;
+
+     logfiletype = file of logtype;
+
+
+type quotehead = record
+       head: longint;
+       tail: longint;
+       pad: string[7];
+     end;
+
+     quotetype = record
+       status: byte;
+       name: string[25];    { their name }
+       quote: string[72];   { what they said }
+       time: timetype;      { when they said it }
+       date: datetype;
+       pad: string[22];
+     end;
+
+
+
+{ -- File Directories ------------------------------------------------------ }
+
+type DirHeader = record    { File directory header info }
+       root: treeroottype;     { root information }
+
+       access: byte;           { access level required to use directory }
+       attrib: attribset;      { attributes required to use/upload }
+       name: string[40];       { long directory name }
+       visible: boolean;       { directory visible? }
+       subsysop: string[25];   { directory subsysop }
+
+       filepath: string[45];   { path to files }
+       maxsize: word;          { max number of files allowed }
+       autokill: boolean;      { auto kill oldest files }
+       readonly: boolean;      { read only dir }
+       writeonly: boolean;     { write only dir }
+       free: longint;          { free files limit }
+       value: integer;         { value multiplier }
+       dlattrib: attribset;    { attributes required to download }
+
+       pad: array[1..110] of byte;   { pad to 256 bytes }
+     end;
+
+
+     DirType = record      { File directory record format }
+       leaf: treeleaftype;     { tree/list leaf data }
+
+       name: string[12];       { filename }
+       descrip: string[40];    { description }
+       edescrip: array[1..2]
+         of string[60];        { extended description }
+       spare: byte;            { spare byte }
+       length: longint;        { length in 128-char blocks }
+       id: longint;            { ID of uploader }
+       cksum: integer;         { checksum of uploader }
+       date: datetype;         { date uploaded }
+       times: longint;         { # of times downloaded }
+       passwd: pwtype;         { password }
+       offline: boolean;       { flag if file not available }
+
+       pad: array[1..41] of byte;    { pad to 256 bytes }
+     end;
+
+
+
+
+
+{ Range Checking, enabled for debugging, also so that it generates an }
+{ error message intead of producing wierd output                      }
+
+
+{ because of the design of this program, it will work with even more        }
+{ speed if there is a disk cache running, or it will even be faster if      }
+{ your disk controller has a built in cache.   It traverses the whole dir   }
+{ tree (which only takes a few seconds for 200 files), and then it assigns  }
+{ pointers to the data to an array. which is [1..N] where N is the number   }
+{ of files in the directory.
+
+
+{ Recursive alorithm for the binary tree file directory goes at       }
+{ about 41 nodes per second.                                          }
+
+{ has not been re-timed with error detection using ARG()              }
+
+const
+       version = '1.02';
+       MaxDirs = 100;
+       maxfiles = 5000;
+       buffermax = 46;
+       BaseY = 5;
+
+       { BufferMax is maximum number of buffers that could ever be needed }
+       { this is equal to the greatest amount of lines per screen minus 4 }
+
+var
+   {  Vars for Files  }
+
+   UserFile    : file;
+   UserHdr     : UserHeader;
+   UserGenHdr  : FileHeader;
+   User        : UserType;
+
+
+   configfile  : file of configtype;           { set up type for config.sl2 }
+   cfg         : configtype;                   { variable type for config   }
+
+   CurDirFile  : file;
+   CurDirHdr   : DirHeader;
+   CurDirGenHdr: fileheader;
+   CurDir      : dirtype;
+
+   SetupFile   : file;
+   SetupGenHdr : Fileheader;
+   SetupHdr    : SetupHeader;
+   Setup       : SetupData;
+
+type
+     FiledirType = record  { name and path of dirfiles.sl2 }
+        Name: string[8];
+        Path: string[60];
+     end;
+
+     scrtype  = record
+        chr : char;
+        attr: byte;
+     end;
+Var
+
+    FastLoadFiles : boolean;                         { no screen update    }
+                                                     { while scanning dir  }
+
+    OrigTextMode  : word;                            { original text mode  }
+    NewTextMode   : word;                            { new text mode       }
+
+    buffersize    : integer;                         { buffersize parsed   }
+                                                     { from command line,  }
+
+    PathToConfig   : string;                         { path to config file }
+    FileDirs       : Array[1..MaxDirs] of
+                              FileDirType;           { for filedir.sl2     }
+    CurDirIndex    : integer;                        { current open dir    }
+    NumOfDirs      : integer;                        { number of dirs      }
+
+    Files          : array[1..buffermax] of Dirtype; { buffer of files     }
+    CurFileIdx     : integer;                        { current file        }
+
+    FilePtr        : array[1..maxfiles] of longint;  { array of pointers   }
+        { the FilePtr[1] would be a LongInt which }  { of actual record    }
+        { is the actual record number in the file }  { numbers..           }
+
+    LowFile        : integer;                       { first file in buffer }
+    NumOfFiles     : integer;                       { number of files      }
+
+    Screen         : array[1..80,1..25] of scrtype;
+
+
+
+Procedure CursorOff;
+Begin
+  Inline($50/$51/$B4/$01/$B5/$FF/$B1/$0C/$CD/$10/$59/$58);
+End;
+
+
+
+Procedure CursorOn;
+Begin
+  Inline($50/$51/$B4/$01/$B5/$0C/$B1/$0D/$CD/$10/$59/$58);
+End;
+
+procedure Arg(Io: word; s: string);
+   begin
+   if Io <> 0 then
+    begin
+    textbackground(black);textcolor(lightred);
+    clrscr;
+    if NewTextMode <> OrigTextMode then TextMode(OrigTextMode);
+    writeln('Error ',IoResult,': Program Terminated: ', s);
+    normvideo;
+    HALT(1);     { Stop Everything!  Full Reverse, Scotty! }
+    end;
+   end;
+
+function ToStr(var s: integer): string;
+  var a: string;
+  begin
+  str(S,A);
+  ToStr:=A;
+  end;
+
+Function Tab(n: integer;m:integer):string;
+  var a: string;
+      b: integer;
+  begin
+  a := '';
+  for b := m downto n do a:=a+' ';
+  tab := a;
+  end;
+
+procedure Read_config;                       { set configtype to dir in   }
+  begin                                      { command line for           }
+
+  {$I-}
+  assign(configfile, pathtoconfig+configspec); {  config.sl2              }
+  reset(configfile);                         { open and set to first      }
+  read(configfile, cfg);                     { record (0) and read to     }
+  {$I+}
+  Arg(IOResult, 'Error Opening/Reading Config.SL2');
+
+  end;                                       { cfg                        }
+
+procedure close_config;                      { closes config file         }
+  begin
+  close(configfile);
+  end;
+
+procedure Open_setup;
+  begin
+  {$I-}
+  Assign(SetupFile,Cfg.DataPath + DirSpec);
+  Reset(SetupFile, 1);
+  {$I+}
+  Arg(IoResult, 'Error Opening FILEDIR.SL2');
+  end;
+
+
+Procedure Read_Setup_Gen_Hdr;
+  begin
+  {$I-}
+  Seek(SetupFile, 0);
+  BlockRead(SetupFile, SetupGenHdr, Sizeof(SetupGenHdr));
+  {$I+}
+  Arg(IoResult, 'Error Reading FILEDIR.SL2 general header');
+  end;
+
+procedure Read_Setup_Hdr;
+  begin
+  {$I-}
+  Seek(SetupFile, Sizeof(SetupGenHdr));
+  BlockRead(SetupFile , SetupHdr , sizeof(SetupHdr));
+  {I+}
+  Arg(IoResult, 'Error Reading FILEDIR.SL2 header');
+  end;
+
+
+procedure Close_Setup_File;
+  begin
+  close(SetupFile);
+  end;
+
+
+procedure Close_filedir;
+  begin
+  close(CurDirFile);
+  end;
+
+procedure Open_userfile;
+  begin
+  {$I-}
+  Assign(userfile, Cfg.Datapath+userspec);
+  reset(userfile, 1);
+  {$I+}
+  Arg(IoResult, 'Error Opening USER.SL2');
+  end;
+
+procedure Read_user_hdrs;
+  begin
+  {$I-}
+  seek(userfile, 0);
+  blockread(userfile, usergenhdr, sizeof(usergenhdr));
+  {$I+}
+  Arg(IoResult, 'Error Reading USER.SL2 general header');
+
+  {$I-}
+  seek(userfile, sizeof(usergenhdr));
+  blockread(userfile, userhdr, sizeof(userhdr));
+  {$I+}
+  arg(IoResult, 'Error Reading USER.SL2 header');
+  end;
+
+procedure Readuser(n: longint);
+  begin
+  {$I-}
+  Seek(Userfile, (UserGenHdr.RecSize*(n-1))+UserGenHdr.Offset);
+  Blockread(UserFile, User, UserGenHdr.Recsize);
+  {$I+}
+  Arg(IoResult, 'Error Reading USER.SL2');
+  end;
+
+
+procedure Close_userfile;
+  begin
+  close(userfile);
+  end;
+
+procedure ClimbTree_setup(rec:longint);
+  var Right     : longint;
+      Left      : longint;
+      TempSetup : Setupdata;
+
+
+  begin
+
+  if rec <> 0 then
+    begin
+
+    {$I-}
+    Seek(SetupFile, (SetupGenHdr.RecSize*(rec-1))+SetupGenHdr.Offset);
+    BlockRead(SetupFile, Setup, SetupGenHdr.RecSize);
+    {$I+}
+    Arg(IoResult, 'Error Traversing Binary Structure in FILEDIR.SL2');
+
+    Right := Setup.leaf.Right;
+    Left := Setup.leaf.left;
+    TempSetup := Setup;
+
+    if Left <> 0 then ClimbTree_Setup(Left);
+
+    Inc(NumOfDirs);
+    if NumofDirs > MaxDirs then Arg(500,'Too Many File Directories - Contact Author');
+
+    FileDirs[NumOfDirs].name := TempSetup.Name;
+    FileDirs[NumOfDirs].path := TempSetup.Path;
+
+    if Right <> 0 then ClimbTree_Setup(Right);
+
+    end;
+
+  end;
+
+
+procedure Get_Dir_Names;
+  var
+      N      : longint;
+
+  begin
+  NumOfDirs := 0;
+  N := SetupHdr.Root.Treeroot;
+
+  ClimbTree_Setup(n);
+  if numofdirs = 0 then Arg(1, 'No File Directories!');
+  end;
+
+
+
+procedure Choose_Dir(var Donehere: boolean);
+
+  var a     : integer;
+      b     : string;
+      w     : byte;
+      maxnum: integer;
+      picked: boolean;
+      k     : char;
+      lowdir: integer;
+      olddir: integer;
+      oldscr: integer;
+      scridx: integer;
+      numlin: integer;
+      tdone : boolean;
+
+
+  procedure ScrollDirs(n: integer);
+    var a: integer;
+    begin
+    textcolor(cyan);
+    textbackground(black);
+    for a:= 1 to maxnum do
+     begin
+     gotoxy(4,1+a );  { 2..24 }
+     write(casestr(FileDirs[n+a-1].name)+tab(ord(FileDirs[n+a-1].name[0]),8));
+     end;
+    end;
+
+  begin
+
+  numlin := Buffersize + 2;
+
+  textbackground(black);
+  textcolor(green);
+  clrscr;
+
+  gotoXY(1,1);pr(#213);for w:=2 to 13 do pr(#205);pr(#184);
+
+  for W:= 2 to numlin + 1 do begin gotoxy(1,W); PR(#179) end;
+  for W:= 2 to numlin + 1 do begin gotoxy(14,W); PR(#179) end;
+
+  gotoXY(1,numlin + 2);pr(#212);for w:=2 to 13 do pr(#205);pr(#190);
+
+
+
+  textcolor(cyan);
+  if numofdirs > numlin then maxnum := numlin else maxnum := numofdirs;
+
+  for W:=1 to maxnum do
+    begin
+    gotoxy(4,1+W); pr(casestr(FileDirs[W].name));
+    end;
+
+  textcolor(blue);
+  gotoxy(21, 1);for w:=21 to 79 do write(#196);
+  gotoxy(21, 5);write(#196,#196,#196,' ');textcolor(red);
+  write('Version ', Version,' ');textcolor(blue);
+
+  for w:=21+3+(length(version))+2+8 to 79 do write(#196);
+
+  textcolor(lightcyan);
+  gotoxy(22, 2);write(' ÒÄ¿  Ò  ÒÄ·   ÒÄ·   ÒÄ¿ ');
+  gotoxy(22, 3);write(' º ³  º  ÇÂ½   ÇÄ    º ³ ');
+  gotoxy(22, 4);write(' ÐÄÙ  Ð  Ð \   ÐÄ½   ÐÄÙ ');
+
+  textcolor(cyan)     ;gotoxy(53, 2);write('The File Directory Editor');
+  textcolor(cyan)     ;gotoxy(53, 3);write('        for the');
+  textcolor(cyan)     ;gotoxy(53, 4);write(' Searchlight BBS System');
+
+  textcolor(red);
+  gotoxy(21, 7);for w:=21 to 79 do write(#196);
+  gotoxy(21, 9);for w:=21 to 79 do write(#196);
+
+  Textcolor(yellow);gotoxy(21, 8);
+  write(' Dired (C) Copyright 1991 by Zak Smith all rights reserved');
+
+  textcolor(green);
+  gotoxy(21, 11);for a:=21 to 79 do write(#196);
+
+  gotoxy(21, 19);for a:=21 to 79 do write(#196);
+
+  textcolor(lightcyan);gotoxy(22, 12);write('Function Keys');
+
+  gotoxy(23, 13 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Home');textcolor(blue);write(']       ');
+                      textcolor(cyan);write('Go to begining of listing');
+
+  gotoxy(23, 14 );textcolor(blue);write('[');textcolor(yellow);
+                      write('End');textcolor(blue);write(']        ');
+                      textcolor(cyan);write('Go to end of listing');
+
+  gotoxy(23, 15 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Up Arrow');textcolor(blue);write(']   ');
+                      textcolor(cyan);write('Scroll up one line');
+
+  gotoxy(23, 16 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Down Arrow');textcolor(blue);write('] ');
+                      textcolor(cyan);write('Scroll down one line');
+
+  gotoxy(23, 17 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Enter');textcolor(blue);write(']      ');
+                      textcolor(cyan);write('Opens current directory for viewing, editing');
+
+  gotoxy(23, 18 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Escape');textcolor(blue);write(']     ');
+                      textcolor(cyan);write('Quits Dired');
+
+
+  textcolor(blue);
+
+  gotoxy(21, 21);for a:=21 to 79 do write(#196);
+  gotoxy(21, 25);for a:=21 to 79 do write(#196);
+
+  gotoxy(22, 22);textcolor(lightgray);
+  write('Command Line Parameters (optional): ');
+  textcolor(white);gotoxy(23, 23);
+  write('DIRED /p<path>          /l<lines>        /B[ios]');gotoxy(22, 24);
+  write('          to Config.Sl2     per screen      screen writes');
+
+  lowdir := 1;
+  CurDirIndex := 1;
+  ScrIdx := 1;
+  OldScr := 1;
+  OldDir := 1;
+  DoneHere := False;
+  Picked := False;
+  tdone := false;
+
+  textbackground(Blue);textcolor(White);
+     GotoXY(3,ScrIdx+1);PR(' '+CaseStr(FileDirs[CurDirIndex].Name)+tab(ord(filedirs[CurDirIndex].name[0]),8));
+
+  cursoroff;
+
+  repeat
+     begin
+     repeat until keypressed;
+     k := readkey;
+
+     textbackground(Black);textcolor(cyan);
+     GotoXY(3,OldScr+1);PR(' '+CaseStr(FileDirs[OldDir].Name)+tab(ord(filedirs[oldDir].name[0]),8));
+
+     case K of
+      #27: begin picked := true;donehere := true end;
+       #0:
+           begin
+           case Readkey of
+   { home }   #71: if curdirindex > 1 then
+                    begin
+                    curdirindex := 1;
+                    scridx := 1;
+                    lowdir := 1;
+                    scrolldirs(lowdir);
+                    end;
+   { up   }   #72: if curdirindex > 1 then
+                    begin
+                    dec(curdirindex);
+                    dec(scridx);
+                    if ScrIdx < 1 then
+                        begin
+                        ScrIdx := 1;
+                        dec(lowdir);
+                        scrolldirs(lowdir);
+                        end;
+                    end;
+   { down }   #80: if curdirindex < numofdirs then
+                    begin
+                    inc(curdirindex);
+                    inc(scridx);
+                    if ScrIdx > MaxNum then
+                        begin
+                        ScrIdx := maxnum;
+                        inc(lowdir);
+                        Scrolldirs(lowdir);
+                        end;
+                    end;
+   { end  }   #79: if curdirindex < numofdirs then
+                    begin
+                    if numofdirs > maxnum then lowdir := numofdirs - maxnum+1;
+                    curdirindex := numofdirs;
+                    scridx := maxnum;
+                    scrolldirs(lowdir);
+                    end;
+             end; { case readkey }
+           end;  {begin }
+
+       #13: picked := true;
+
+       end;     {case k of }
+
+
+     textbackground(Blue);textcolor(White);
+     GotoXY(3,ScrIdx+1);PR(' '+CaseStr(FileDirs[CurDirIndex].Name)+tab(ord(filedirs[CurDirIndex].name[0]),8));
+
+     OldDir := CurDirIndex;
+     OldScr := ScrIdx;
+
+     end; { repeat }
+
+  until picked;
+  cursoron;
+  end;
+
+Procedure Open_File_Dir;
+  begin
+  {$I-}
+  Assign(CurDirFile, FileDirs[CurDirIndex].path + FileDirs[CurDirIndex].name+'.sl2');
+  reset(CurDirFile, 1);
+  {$I+}
+  Arg(IoResult, 'Error Opening File Directory '+filedirs[CurDirIndex].name );
+  end;
+
+
+procedure Close_File_Dir;
+  begin
+  close(CurDirFile);
+  end;
+
+Procedure Read_File_Gen_Hdr;
+  begin
+  {$I-}
+  Seek(CurDirFile, 0);
+  BlockRead(CurDirFile, CurDirGenHdr, Sizeof(CurDirGenHdr));
+  {$I+}
+  Arg(IoResult, 'Error Reading '+FileDirs[CurDirIndex].name+' general header');
+  end;
+
+procedure Read_File_Hdr;
+  begin
+  {$I-}
+  Seek(CurDirFile, Sizeof(CurDirGenHdr));
+  BlockRead(CurDirFile , CurDirHdr , sizeof(CurDirHdr));
+  {$I+}
+  Arg(IoResult, 'Error Reading '+Filedirs[CurDirIndex].name+' header');
+  end;
+
+
+procedure Status(s:string);
+  var x,y,a:integer;
+  begin
+  x:=wherex;y:=wherey;
+  gotoxy(20,1);
+  textcolor(green);write('[');
+  textcolor(lightgray);
+  write(' ',s,' ');
+  textcolor(green);write(']');
+  for a:= 80-WhereX downto 1 do write(#196);
+  end;
+
+
+procedure ErrorBTF;
+  begin
+  Arg(IoResult, 'Error Traversing Binary Structure in '+FileDirs[CurDirIndex].name );
+  end;
+
+procedure StatusBTF;
+  begin
+  if Not FastLoadFiles then
+  Status('Scanning Directory '+CaseStr(FileDirs[CurDirIndex].name)+
+                  ' - '+ToStr(NumOfFiles));
+  end;
+
+procedure ClimbTree_Dir(rec:longint);
+  var Right     : longint;
+      Left      : longint;
+
+  begin
+
+  if rec <> 0 then
+    begin
+
+    {$I-}
+    Seek(CurDirFile, (CurDirGenHdr.RecSize*(rec-1))+CurDirGenHdr.Offset);
+    BlockRead(CurDirFile, CurDir, CurDirGenHdr.RecSize);
+    {$I+}
+
+    ErrorBTF;
+
+    Right := CurDir.leaf.Right;
+    Left := CurDir.leaf.left;
+
+    if Left <> 0 then ClimbTree_Dir(Left);
+
+    Inc(NumOfFiles);
+    FilePtr[NumOfFiles] := rec;
+
+    StatusBTF;
+
+    if Right <> 0 then ClimbTree_Dir(Right);
+
+    end;
+
+  end;
+
+
+
+procedure ScanData;
+  var n:longint;
+  begin
+  numoffiles := 0;
+  N := CurDirHdr.Root.Treeroot;
+  If FastLoadFiles then Status('Scanning Directory '+CaseStr(FileDirs[CurDirIndex].name));
+  ClimbTree_Dir(N);
+  end;
+
+
+Procedure Writefile(n: longint; rec: DirType);
+  begin
+  {$I-}
+  Seek(CurDirFile, (CurDirGenHdr.RecSize*( fileptr[n] -1))+CurDirGenHdr.Offset);
+  Blockwrite(CurDirFile, Rec, CurDirGenHdr.RecSize);
+  {$I+}
+  Arg(IoResult, 'Error Writing '+FileDirs[CurDirIndex].name );
+  end;
+
+procedure Getfile(n: longint; var rec: DirType);
+  { note the FilePtr[n] in the SEEK line.  it is the actual record number }
+  begin
+  {$I-}
+  Seek(CurDirFile, (CurDirGenHdr.RecSize*( fileptr[n] -1))+CurDirGenHdr.Offset);
+  BlockRead(CurDirFile, Rec, CurDirGenHdr.RecSize);
+  {$I+}
+  Arg(IoResult, 'Error Reading '+FileDirs[CurDirIndex].name);
+  end;
+
+
+procedure Help_File;
+  var a   : integer;
+      k   : char;
+  begin
+  for a:= BaseY to BaseY + 5 do
+    begin
+    gotoxy(1,A);clreol;
+    end;
+  gotoxy(1,basey+5+1);textcolor(green);for a:=1 to 69 do write(#196);
+  write('[');textcolor(lightgray);write(' Key... ');textcolor(green);
+  write(']Ä');
+
+  gotoxy(2, baseY   );textcolor(lightcyan);write('Function Keys');
+
+  gotoxy(3, baseY+1 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Home');textcolor(blue);write(']       ');
+                      textcolor(cyan);write('Go to begining of listing');
+
+  gotoxy(3, baseY+2 );textcolor(blue);write('[');textcolor(yellow);
+                      write('End');textcolor(blue);write(']        ');
+                      textcolor(cyan);write('Go to end of listing');
+
+  gotoxy(3, baseY+3 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Up Arrow');textcolor(blue);write(']   ');
+                      textcolor(cyan);write('Scroll up one line');
+
+  gotoxy(3, baseY+4 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Down Arrow');textcolor(blue);write('] ');
+                      textcolor(cyan);write('Scroll down one line');
+
+  gotoxy(43,baseY+1 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Page Up');textcolor(blue);write(']    ');
+                      textcolor(cyan);write('Scroll up one page');
+
+  gotoxy(43,baseY+2 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Page Down');textcolor(blue);write(']  ');
+                      textcolor(cyan);write('Scroll down one page');
+
+
+  gotoxy(43,baseY+3 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Enter');textcolor(blue);write(']      ');
+                      textcolor(cyan);write('Edit current file');
+
+  gotoxy(43,baseY+4 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Escape');textcolor(blue);write(']     ');
+                      textcolor(cyan);write('Exit to Directory listing');
+
+  gotoxy(3, baseY+5 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Alt-C');textcolor(blue);write(']      ');
+                      textcolor(cyan);write('Clear file''s password');
+
+  gotoxy(43, baseY+5 );textcolor(blue);write('[');textcolor(yellow);
+                      write('Alt-E');textcolor(blue);write(']');
+                      textcolor(lightgray);write('/');textcolor(blue);
+                      write('[');textcolor(yellow);write('F2');
+                      textcolor(blue);write('] ');
+                      textcolor(cyan);write('Extended file info');
+
+
+  k := readkey;
+  for a:= basey to basey + 6 do
+     begin
+     gotoxy(1,a);clreol;
+     end;
+  end;
+
+Procedure Proc_Dir;
+   var  k        : char;
+        A        : integer;
+        B        : integer;
+        donehere : boolean;
+        oldscr   : integer;
+        scridx   : integer;
+        selected : boolean;
+        temp     : dirtype;
+        maxnum   : integer;
+
+   const  pffile = 4;                   { file }
+          pfdot  = 12+pffile;           { extend dot }
+          pfofl  = 13+pffile;           { offline }
+          pfdesc = 19;                  { description }
+          pfpw   = 13+pffile;           { Password }
+
+   procedure showlong(n: integer);
+    begin
+    GotoXY(1,2);
+    TextColor(blue);write('[');
+    TextColor(Cyan);write(CaseStr(Files[n].name) + Tab(ord(Files[n].name[0]),12));
+    TextColor(Blue);Write(']');
+
+    if Length(Files[n].EDescrip[1]) > 0 then
+     begin
+     GotoXY(18, 2);TextColor(LightGray);
+        Write(Files[n].EDescrip[1]);ClrEol;
+     GotoXY(18, 3);
+        Write(Files[n].EDescrip[2]);ClrEol;
+     end
+    else
+     begin
+     GotoXY(18,2);ClrEol;
+     GotoXY(18,3);ClrEol;
+     end;
+    end;
+
+   procedure putfile(n: integer);
+    begin
+    gotoxy(pffile, baseY-1+n);
+    textcolor(lightgreen);
+    write(casestr(Files[n].name));clreol;
+
+    textcolor(red);
+
+    if (files[n].passwd[1] <> 0) and
+       (files[n].passwd[2] <> 0) and
+       (files[n].passwd[3] <> 0) then
+       begin
+       gotoxy(pfpw, basey-1+n);
+       write('+');
+       end;
+
+    if files[n].offline then
+       begin
+       gotoxy(pfofl, basey-1+n);
+       write('*');
+       end;
+
+    textcolor(cyan);
+
+    if Files[n].Edescrip[1] <> '' then
+       begin
+       gotoxy(pfdot,baseY-1+n);
+       write(#249);
+       end;
+
+    textcolor(lightgray);
+    gotoxy(pfdesc,basey-1+n);
+    write(files[n].Descrip);
+    end;
+
+   procedure ScrUp;
+    begin
+    GotoXY(1, BaseY);
+    InsLine;
+    PutFile(1);
+    end;
+
+   procedure ScrDn;
+    begin
+    gotoxy(1, BaseY);
+    DelLine;
+    GotoXY(1,BaseY+ (Buffersize-1) );
+    Putfile(BufferSize);
+    end;
+
+   Procedure ScrollFiles(n: integer);
+        var a: integer;
+        begin
+        for a:=1 to maxnum do
+          begin
+          gotoxy(1,BaseY-1 + a);
+
+          putfile(A);GotoXY(1, WhereY+1);
+          end;
+       end;
+
+    procedure select(a: integer);
+       begin
+       gotoxy(1,BaseY-1 +a);
+       textbackground(black);
+       textcolor(white);
+       write('->');
+       {write(#254);}
+       end;
+
+    procedure Unselect(a: integer);
+       begin
+       gotoxy(1,BaseY-1 +a);
+       textbackground(black);
+       write('  ');
+       end;
+
+   procedure Edit_Short;
+       var Stringone, Stringtwo: string;
+       begin
+       GotoXY(pfdesc-1, BaseY+ScrIdx-1);
+       Stringtwo := Files[ScrIdx].Descrip;
+       CursorOn;
+       Editor(40, Stringone, stringtwo,white,blue);
+       files[scridx].descrip := stringone;
+       CursorOff;
+       gotoxy(pfdesc-1, wherey);textcolor(lightgray);write(' ');
+       write(files[scridx].descrip);clreol;
+       end;
+
+   procedure Edit_long;
+       var Stringone, Stringtwo: string;
+       begin
+       GotoXY(17,2);
+       Stringtwo := files[ScrIdx].EDescrip[1];
+       CursorOn;
+       Editor(60, Stringone, stringtwo,white,blue);
+       CursorOff;
+       Textcolor(lightgray);gotoxy(17, 2);
+       Files[ScrIdx].EDescrip[1] := stringone;
+       Write(' ',files[ScrIdx].EDescrip[1]);clreol;
+
+       if Files[ScrIdx].EDescrip[1] <> '' then
+        begin
+        GotoXY(17,3);
+        Stringtwo := files[ScrIdx].Edescrip[2];
+        CursorOn;
+        Editor(60, Stringone, stringtwo,white,blue);
+        CursorOff;
+        Textcolor(lightgray);gotoxy(17,3);
+        Files[ScrIdx].EDescrip[2] := stringone;
+        Write(' ',files[ScrIdx].Edescrip[2]);clreol;
+        end
+       else { if descrip[1] DOES = '' }
+         begin
+         Files[ScrIdx].EDescrip[2] := '';
+         gotoxy(17, 3);clreol;
+         end;
+       putfile(scridx);
+       end;
+
+   procedure Show_Extended(n: integer);
+       var k    : char;
+           name : string[25];
+       begin
+       gotoxy(18,2);clreol;
+       gotoxy(18,3);clreol;
+
+       name := '<deleted user>';
+
+       if files[n].id <> 0 then
+        begin
+        open_userfile;
+        read_user_hdrs;
+        readuser(files[n].id);
+        close_userfile;
+        name := user.name;
+        end;
+
+       gotoxy(18, 2);textcolor(lightgray);write('Uploaded by ');
+       textcolor(white);write(name);textcolor(lightgray);
+       write(' on ');textcolor(white);
+
+       write(files[n].date.month);textcolor(lightgray);write('-');
+       textcolor(white);write(files[n].date.day);textcolor(lightgray);
+       write('-');
+       textcolor(white);write(files[n].date.year+1900);
+
+       gotoxy(18,3);textcolor(lightgray);write('File Size ');
+       textcolor(white);write(files[n].length*128);
+
+       textcolor(lightgray);
+       Write(' Downloaded ');textcolor(white);write(files[n].times);
+       textcolor(lightgray);write(' times');
+
+       gotoxy(74,2);textcolor(blue);write('[');textcolor(yellow);
+       write(' Key ');textcolor(blue);write(']');
+
+       k := readkey;
+       gotoxy(1,2);clreol;
+
+       showlong(scridx);
+       end;
+
+   begin
+   CursorOff;
+
+   textbackground(black);
+   clrscr;
+   textcolor(Green);
+   GotoXY(1,1);pr('[');textcolor(Cyan);
+   PR(casestr(FileDirs[CurDirIndex].name) + Tab(ord(FileDirs[CurDirIndex].name[0]),7));
+   TextColor(Green);PR(']');
+   for a:=1 to 70 do write(#196);
+   Gotoxy(1,baseY-1);
+   for a:=1 to 59 do write(#196);write('[');
+   {textcolor(lightgray);write('[');}
+   textcolor(yellow);write('F1');
+   textcolor(lightgray);write(' - Help Screen');
+   textcolor(green);write(']ÄÄÄ');
+
+   Open_File_Dir;
+   Read_File_Gen_Hdr;
+   Read_File_Hdr;
+   ScanData;
+
+   selected := false;
+   lowFile := 1;
+   CurFileIdx :=1;
+   donehere := false;
+   scridx:=1;
+   oldScr:=1;
+
+   If NumOfFiles = 0 then
+       begin
+       gotoxy(5,2);
+       textcolor(lightcyan);
+       write('No ');textcolor(cyan);write('files in this directory! ');
+       write('Press any key to continue');
+       k := readkey;
+       Exit;
+       end;
+
+   if numoffiles > buffersize then maxnum := buffersize
+     else maxnum := numoffiles;
+
+   for a:=1 to maxnum do Getfile(a, files[a]);
+
+   scrollfiles(1);
+   select(1);
+   status('Viewing Files [1..'+ToStr(NumOfFiles)+']' );
+   ShowLong(ScrIdx);
+
+    repeat
+      begin
+      repeat until keypressed;
+      k := readkey;
+      UnSelect(OldScr);
+
+      case k of
+
+   {Ntr} #13: selected := true;
+   {Esc} #27: donehere := true;
+         #0 :
+            case readkey of
+   { F1   }   #59:
+                   begin
+                   Help_file;
+                   scrollfiles(lowfile)
+                   end;
+   { ALT-E }  #18,#60:
+                   begin
+                   Show_Extended(ScrIdx);
+                   end;
+   { ALT-C }  #46:
+                   begin
+                   files[ScrIdx].passwd[1] := 0;
+                   files[ScrIdx].passwd[2] := 0;
+                   files[ScrIdx].passwd[3] := 0;
+                   writefile(CurFileIdx, Files[ScrIdx]);
+                   putfile(ScrIdx);
+                   end;
+   { PGDN }   #81: begin
+                   if CurFileIdx + Maxnum +(Maxnum-ScrIdx) < NumOfFiles then
+                     begin
+                     Lowfile := Lowfile + Maxnum;
+                     CurFileIdx := LowFile + ScrIdx;
+                     end
+                   else
+                       begin
+                       CurFileIdx := NumOfFiles;
+                       ScrIdx := MaxNum;
+                       if NumOfFiles = Maxnum then
+                         LowFile := 1
+                       else
+                         LowFile := NumOfFiles - MaxNum;
+                       end;
+
+                   For A:=1 to Maxnum do GetFile(LowFile+A-1, Files[A]);
+                   ScrollFiles(LowFile);
+                   end;
+
+   { PGUP }   #73: begin
+                   If CurFileIdx-Maxnum-ScrIdx > 0 then
+                     begin
+                     LowFile := LowFile - Maxnum;
+                     CurFileIdx := LowFile + ScrIdx - 1 ;
+                     end
+                   else
+                     begin
+                     CurFileIdx := 1;
+                     ScrIdx := 1;
+                     LowFile := 1;
+                     end;
+                   For A:=1 to Maxnum do GetFile(LowFile+A-1, Files[A]);
+                   ScrollFiles(LowFile);
+                   end;
+
+   { HOME }   #71: if CurFileIdx > 1 then
+                     begin
+                     LowFile := 1;
+                     ScrIdx := 1;
+                     CurFileIdx := 1;
+                     For A:=1 to MaxNum do GetFile(A, Files[A]);
+                     ScrollFiles(LowFile);
+                     end;
+
+   { END }    #79: If CurFileIdx < NumOfFiles then
+                    begin
+                    CurFileIdx := NumOfFiles {- 1} ;
+                    ScrIdx := MaxNum;
+                    if MaxNum = NumOfFiles then LowFile := 1
+                    else LowFile := NumOfFiles - MaxNum ;
+                    For A:=1 to Maxnum do GetFile(LowFile+A-1, Files[A]);
+                    ScrollFiles(LowFile);
+                    end;
+   { DOWN }   #80:
+                   if CurFileIdx < NumOfFiles then
+                    begin
+                    Inc(CurFileIdx);
+                    Inc(ScrIdx);
+                    if ScrIdx > MaxNum then
+                      begin
+                      For A:=1 to MaxNum-1 Do Files[A] := Files[A+1];
+                      GetFile(LowFile+MaxNum, Files[MaxNum]);
+                      Inc(LowFile);
+                      ScrIdx := MaxNum;
+                      ScrDn;
+                      end
+                    end;
+   { UP }     #72:
+                if CurFileIdx > 1  then
+                   begin
+                   dec(CurFileIdx);
+                   dec(ScrIdx);
+                   if (ScrIdx < 1) and (LowFile > 1) then
+                    begin
+                    Dec(LowFile);
+                    ScrIdx :=1;
+                    For A:=Maxnum Downto 2 do Files[A] := Files[A-1];
+                    GetFile(LowFile, Files[1]);
+                    ScrUp;
+                    end;
+                  end;
+              end; { case of #0/x codes }
+         end;
+
+       select(scridx);
+
+       oldscr:=scridx;
+
+       Showlong(ScrIdx);
+
+       if selected then
+         begin
+
+         Status('Editing short description of File '+CaseStr(Files[ScrIdx].Name));
+
+         Edit_Short;
+
+         Status('Editing long description of File '+CaseStr(Files[ScrIdx].Name));
+         Edit_Long;
+
+         writefile(CurFileIdx, Files[ScrIdx]);
+         Selected := false;
+         status('Viewing Files [1..'+ToStr(NumOfFiles)+']' );
+         end;
+
+     end;
+
+   until donehere;
+
+   Close_file_dir;
+
+   end;
+
+procedure ParseParam;
+  { DIRED /pd:\sl-test /l25 /b /f}
+  var idx : integer;
+      d   : boolean;
+      t   : string;
+      s   : string;
+      a   : integer;
+      l   : string;
+
+  begin
+  d := false;
+  idx := 0;
+  DirectVideo := True;
+  buffersize := 25 - 4;
+  FastLoadFiles := false;
+
+  if Paramcount = 0 then
+     begin
+     Buffersize := 21;
+     PathToConfig := '';
+     end
+  else
+     begin
+     repeat
+        begin
+        inc(idx);
+        if Idx <= ParamCount then
+         begin
+         s := paramstr(idx);
+         for a := 1 to ord(s[0]) do s[a] := upcase(s[a]);
+         t :=  S[1] + S[2]  ;
+          if T = '/P' then
+                begin
+                if s = '/P' then
+                   PathToConfig := ParamStr(idx+1)
+                else PathToConfig := copy(paramstr(idx),3,ord(s[0])-2);
+                end;
+          if  t = '/L' then
+                begin
+                if s = '/L' then
+                   begin
+                   L := paramstr(idx+1);
+                   end
+                else
+                   begin
+                   L := copy(paramstr(idx),3,ord(s[0])-2);
+                   end;
+                if L = '25' then buffersize := 25 - 4;
+              { if L = '40' then buffersize := 40 - 4; }
+                if L = '43' then buffersize := 43 - 4;
+                if L = '50' then buffersize := 50 - 4;
+                end;
+
+          if t = '/B' then  DirectVideo := False;
+          if t = '/F' then  FastLoadFiles := true;
+         end { idx < para.. }
+         else d := true;
+        end; { repeat.. }
+     until d;
+
+     if PathToConfig <> '' then
+       if PathToConfig[ord(PathToConfig[0])] <> '\' then
+         PathToConfig := PathtoConfig + '\';
+
+     end;
+
+  end;
+
+
+var  done  : boolean;
+
+begin
+
+   Ansi := True;
+   CapsOn := false;
+   textbackground(black);
+
+   Origtextmode := lastmode;
+
+   ParseParam;
+
+   case BufferSize of
+       43 - 4: Newtextmode := Co80+Font8x8;
+       50 - 4: NewTextMode := Co80+Font8x8;
+       25 - 4: NewTextMode := Co80
+       else    NewTextMode := OrigTextMode;
+       end;
+
+   if NewTextMode <> OrigTextMode then TextMode(NewTextMode);
+
+   clrscr;
+
+   Read_Config;
+   Close_Config;
+   if Cfg.Version < 214 then arg(1, 'Wrong version of Config.Sl2!');
+   Open_Setup;
+   Read_Setup_Gen_Hdr;
+   Read_Setup_Hdr;
+   Get_Dir_Names;
+   Close_Setup_File;
+   repeat
+       begin
+
+       Choose_Dir(done);
+       if done <> true then Proc_Dir;
+
+       end;
+   until done;
+
+   if NewTextMode <> OrigTextMode then TextMode(OrigTextMode);
+
+   cursoron;
+   normvideo;
+   clrscr;
+
+end.

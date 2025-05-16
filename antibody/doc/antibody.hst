@@ -1,0 +1,21 @@
+
+Version History..
+ 1.05   - Fixed the "after converting it will ask you again for the
+          description" bug!
+ 
+ 1.04a  - SL v3.0 beta preliminary fix
+
+ 1.04   - Previously it would not work if the "Program Path" != "Config Path"
+
+ 1.03   - Now it saves "bad archive" files in the BADFILE directory instead
+          of just killing them.
+
+ 1.02a  - Just changed the output to work better with SLBBS v2.25, also
+          fixed up the documentation to mesh better with the SLBBS v2.25
+          configuration.
+          
+ 1.02   - Initial version released.
+
+-------------
+end of file
+-------------
