@@ -1,0 +1,5 @@
+ { whatsnew pathtoconfig /[no]WIDE /[no]BRAG /[no]PAGES /[no]CFGCOLORS   }
+
+ {                       /[no]CLEARSCR /[no]STATUS /[no]ASK /[no]ANSIASK }
+
+ {                       /CONFIG                                         }

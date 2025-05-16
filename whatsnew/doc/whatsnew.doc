@@ -1,0 +1,173 @@
+ WHATSNEW - The "What's New" Utility, (c) 1991 by Zak Smith All Rights Reserved
+-------------------------------------------------------------------------------
+
+WHATSNEW is being distributed on the SHAREWARE principle.  You may 
+freely distribute the UNREGISTERED version of WHATSNEW.  WHATSNEW and
+it's documentation are (c) copyright 1991 by Zak Smith All Rights Reserved.
+
+You may use only use WHATSNEW for an ammount of time that is sufficient
+for evaluation.  If you wish to use WHATSNEW for a longer ammount of time, 
+you must register it.  
+
+The REGISTERED version removes the 5 second delay, the 4 short beeps, and the
+three "Braglines".
+
+The Registered version allows WHATSNEW to meld exactly with the SEARCHLIGHT 
+interface.
+
+See WHATSNEW.REG for more information.
+
+If you have suggestions or there is a feature that you would like to see
+in a future version WHATSNEW, contact me at my BBS, Searchlight Support BBS, 
+or via netmail (1:154/736 and 250:200/736).
+
+-[ WHATSNEW ]------------------------------------------------------------------
+
+ WHATSNEW - The "What's New" Utility for Searchlight BBS Systems 
+            Version 2.25.
+
+-[ Features ]------------------------------------------------------------------
+
+ o Status Line                           o Clear Screen
+
+ o Wide Display                          o Ask User to See WHATSNEW
+
+ o Configuration Environment Variable    o Light-Bar Style Question
+
+ o Use of Colors in CONFIG.SL2           o Self-Configuration Mode
+
+ o --more-- Prompts                      o Seamless interface with Searchlight                         
+
+ o [spacebar] or ^C to abort listing     o Show only new files or messages
+
+ All Features are Optional.  
+
+ The "Bragline" cannot be disabled in the unregistered version.  In Addition, 
+ the unregistered version has a 5 second delay followed by 4 short beeps.
+
+-[ Version History ]-----------------------------------------------------------
+
+Version 2.20E - Preliminary fix for SL v3.0 
+
+Version 2.20D - Fixed the 'abcde-1', 'abcde-2' subboard name bug.
+
+Version 2.20C - Added Access Attribute support for File section.  Will only
+                display new files from a directory if the user has all  the
+                attributes needed.  WHATSNEW now also displays the revision
+                letter in the header.
+
+Version 2.20B - If the user's lastread pointer is less than the first actual
+                message, the number of messages on that subboard is shown as
+                new.
+
+Version 2.20A - Finally fixed a bug which only showed new files for that
+                day..
+
+Version 2.20  - Added the abort option, and now WHATSNEW can also show only
+                the new files or messages.  This version is much faster than
+                the previous version.
+
+Version  2.1B - Fixed another bug which incorrectly reported the number of
+                files.  NOW it works..
+
+Version  2.1A - Fixed one small bug which added an extra line between the
+                Message and Files listing if you speicified the WIDE option
+                and there were personal messages in the last subboard listed.
+
+Version  2.1  - This is the first Shareware version.  It adds many features,
+                including a status line, MAIN.* support, asking if the user
+                wants to see WHATSNEW, page and MORE prompt support, and 
+                many more.
+
+Revision 2    - This fixes a minor bug in reporting the number of new files. 
+                The previous version was by a day off in it's caclulations. 
+                (it didn't count files uploaded on the day of the user's last
+                login) Also will Set ERRORLEVEL of 1 is nothing new. This might 
+                be useful in a batch file to send a message or something.
+
+ WHATSNEW was written using no outside function libraries.
+
+-[ General Theory ]------------------------------------------------------------
+
+WHATSNEW will display a list of the subboards and file directories that have
+new messages or files, and how many in each area.  WHATSNEW does NOT process
+the MAIL subboard, as it is checked by Searchlight just after the bulletins, 
+and the fact that it is handled differently than the other subboards. 
+
+-[ Running WHATSNEW ]----------------------------------------------------------
+
+To run WHATSNEW, simply run WHATSNEW from the command line, it will then 
+read CONFIG.SL2 and get everything it needs to know from there.
+
+-[ Controlling WHATSNEW ]------------------------------------------------------
+
+There are three methods to control WHATSNEW.  You can use the configuration
+mode of WHATSNEW, an environment variable, or command line parameters.  
+Command line parameters have priority over the environment variable, and the 
+environment variable has priority over the options configured by using the 
+configuration mode of WHATSNEW.  The only way to save options is to use the
+configuration mode of WHATSNEW.
+
+ Command Line and Environment Variable 
+       * Environment Variable set by using SET WHATSNEW=... in AUTOEXEC.BAT
+
+   WHATSNEW path /[no]WIDE /[no]BRAG /[no]PAGES /[no]CFGCOLORS
+                 /[no]CLEARSCR /[no]STATUS /[no]ASK /[no]ANSIASK 
+                 /[no]SHOWFILES /[no]SHOWMSGS /[no]ALLOWABORT /CONFIG
+
+   o path      - path to CONFIG.SL2 for the current node.  Defaults to the 
+                 current directory.
+ 
+   o WIDE      - Prevents display of the subboard or directory description.
+
+   o BRAG      - Shows the program title and copyright information.
+
+  o PAGES      - Enables the --more-- prompt.
+
+  o CFGCOLORS  - Uses colors configured in CONFIG.SL2.
+
+  o CLEARSCR   - Clears screen before displaying list.
+
+  o STATUS     - Uses the local status line on 25th row.
+
+  o ASK        - Asks user if they with to see WHATSNEW.
+
+  o NOANSIASK  - Prevents the Light-Bar style question.  Use this only
+                 if the local cursor coordinates are different than the
+                 remote coordinates caused by a program that only displays 
+                 on the local console.  You can prevent this problem by 
+                 running WHATSNEW as the first program in your LOGIN
+                 AUTODOOR batchfile.
+
+  o SHOWFILES - Shows the new files. [default]
+
+  o SHOWMSGS  - Shows the new messages. [default]
+
+  o ALLOWABORT- Allows user abort.
+
+  o CONFIG    - Invokes the Configuration mode of WHATSNEW.  
+
+  Prefixing any option with NO gives it the opposite effect.
+
+  The Configuration mode of WHATSNEW will NOT work if WHATSNEW has 
+  been compressed using PKLITE, LZEXE or any such program.  If this
+  does occur, you can still control WHATSNEW by using command line
+  parameters or the environment variable.
+
+-[ Output ]--------------------------------------------------------------------
+
+WHATSNEW will add "- Personal" after the subboard listing if there are
+any messages addressed to the user that they have not read.
+
+Error Levels.
+ WHATSNEW will return one of three possible error levels when run. 
+  0 - WHATSNEW was run and completed successfully.
+  1 - There was nothing new for this user.
+  2 - User answered NO to yes/no question.
+
+-[ Acknowledgements ]-----------------------------------------------------------
+Searchlight BBS (c) by Searchlight Software and Frank LaRosa.
+Turbo Pascal (c) by Borland Int., with which this program was written.
+-------------------------------------------------------------------------------
+Zak Smith - Sirius Cybernetics - 414-966-3552 - 1:154/736 - 250:200/736
+-------------------------------------------------------------------------------

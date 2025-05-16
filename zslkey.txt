@@ -1,0 +1,15 @@
+i think the easiest way to disable the Key checking done via the
+ZSlKey unit is to redefine the ReadKeyOK function
+in ZSLKey to be the following:
+
+Function ReadKeyOK(Var regname:string;var regnum:word):boolean;
+ begin
+ ReadKeyOK:=true
+ end;
+
+I haven't tested this, but it should work.
+
+- Zak, feb 27, 95
+
+
+

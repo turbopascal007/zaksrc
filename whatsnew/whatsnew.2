@@ -1,0 +1,462 @@
+Program WHATSNEW;
+
+Uses Dos,Crt,SlFiles,SlDriv,FileDef,Etc,Dates;
+
+const
+       author        : string[10]   = 'Zak Smith';
+       BragLine      : string       = 'The "What''s New" Utility, '+
+                                      'Revision 2';
+
+       BragLine2     : string       = '           '+
+                                      '(c) Copyright 1991 by Zak Smith, '+
+                                      'All Rights Reserved';
+
+       subnamefirst  : boolean      = true;
+
+       scanningline  : boolean      = true;
+       usecfgcolors  : boolean      = true;
+
+var
+    mbr        : membtype;
+    username   : string[25];
+    user       : usertype;
+    setup      : setupdata;
+    dir        : dirtype;
+
+    on40       : boolean;
+
+    nothingnew : boolean;
+
+    wide       : boolean;
+
+    colors     : array[1..4] of byte;
+
+
+function find_high_msg:longint;
+  begin
+  open_msghdr(setup.path, setup.name);
+  read_msghdr_genhdr;
+  read_msghdr_hdr;
+  close_msghdr;
+  find_high_msg := msghdrhdr.lastmsg;
+  end;
+
+function personal_msgs: boolean;
+  begin {run after a call to find_high_msg, needs MsgHdrHdr}
+  personal_msgs := (Mbr.Lastmail > Mbr.Lastread)
+  end;
+
+procedure Status_Msgs(n:longint);
+  var st: string[4];
+      hm: longint;
+      pm: boolean;
+  begin
+  hm:=Find_High_Msg;
+  pm:=personal_msgs;
+
+  if (HM-N) > 0 then
+    begin
+    if slactive then localonly;
+    if (on40 and wide) then gotoxy(41,wherey) else Gotoxy(1,wherey);
+    if slactive then localandremote;
+
+    if nothingnew then nothingnew := false;
+
+    str((hm-n):4,st);
+    if not subnamefirst then
+      begin
+      TextColor(Colors[1]);
+      write(st);
+      textcolor(Colors[1]);
+      write(' new messages in ');
+      textcolor(Colors[2]);
+      write(setup.name);
+      end
+    else
+      begin
+      textcolor(Colors[2]);write(tab(length(setup.name),8),setup.name);
+      textcolor(Colors[1]);write(' has');textcolor(Colors[2]);
+      write(st);textcolor(Colors[1]);write(' new msgs.');
+      end;
+
+    if not wide then
+      begin
+      if not subnamefirst then write(tab(length(setup.name),8));
+      textcolor(Colors[3]);write(' - ');
+      textcolor(Colors[1]);write(msghdrhdr.name);
+      if pm then
+        begin
+        write(tab(length(msghdrhdr.name),40));
+        end;
+      end;
+    if pm then
+      begin
+      textcolor(Colors[3]);write('- ');
+      textcolor(Colors[4]);
+      write('New Mail');
+      end;
+    if (not on40) and wide and (not pm) then write(tab(0,14));
+    if pm and wide and on40 then write(tab(0,4));
+
+    textcolor(Colors[1]);
+    if (on40 or not wide) then writeln;
+    if wide then if on40=true then on40:=false else on40 := true;
+    end;
+
+  end;
+
+(* All Mail file functions/procedure are remmed out
+ function GetMailNum:longint;
+  var next  : longint;
+      mn    : longint;
+      msghdr: headertype;
+  begin
+  open_msghdr(setup.path,setup.name);
+  read_msghdr_genhdr;
+  read_msghdr_hdr;
+
+  mn := 0;
+  next := Mbr.;
+  repeat
+    begin
+    read_msghdr_data(last,msghdr);
+    inc(mn);
+    last := msghdr.lastmail;
+    end;
+  until MsgHdr.Lastmail < Mbr.LastRead;
+  getmailnum := mn;
+  close_msghdr;
+  end;
+
+ procedure Status_Mail;
+ var  mailnum: longint;
+
+  begin
+  mailnum := GetMailNum;
+  end;
+*)
+procedure ClimbTree_mbr(rec:longint);
+  var Right     : longint;
+      Left      : longint;
+
+  begin
+
+  if rec <> 0 then
+    begin
+
+    Read_msgmbr(rec,mbr);
+
+    Right := mbr.leaf.Right;
+    Left := mbr.leaf.left;
+
+    case compare(username, mbr.name) of
+      0: begin
+         if upcasestr(Setup.Name) <> 'MAIL' then Status_Msgs(Mbr.Lastread);
+          {else Status_Mail;}
+         exit;
+         end;
+
+      1: Climbtree_mbr(right);
+      2: Climbtree_mbr(left);
+      end;
+
+    end;
+  end;
+
+procedure process_mbr_data;
+  begin
+  if scanningline then
+    begin
+    if SlActive then LocalOnly;
+    textcolor(Colors[3]);
+    if (on40 and wide) then gotoxy(41,wherey) else Gotoxy(1,wherey);
+    write('Scanning subboard ',casestr(setup.name),'...');clreol;
+    if SlActive then LocalAndRemote;
+    end;
+  open_msgmbr(setup.path, setup.name);
+  read_msgmbr_genhdr;
+  read_msgmbr_hdr;
+  climbtree_mbr(msgmbrhdr.root.treeroot);
+  close_msgmbr;
+  end;
+
+
+procedure ClimbTree_MsgSetup(rec:longint);
+var left:longint;
+    right:longint;
+
+  begin
+
+   if rec <> 0 then
+    begin
+
+    Read_Setup_data(rec,setup);
+
+    Right := Setup.leaf.Right;
+    Left := setup.leaf.left;
+
+    ClimbTree_MsgSetup(Left);
+
+    Read_Setup_Data(rec,setup);
+
+    if upcasestr(setup.name) <> 'MAIL' then process_mbr_data;
+
+    ClimbTree_MsgSetup(Right);
+
+    end;
+  end;
+
+procedure ScanMsgs;
+  begin
+
+  Open_Setup(setupmsg);
+  read_setup_genhdr;
+  read_setup_hdr;
+
+  Climbtree_msgsetup(setuphdr.root.treeroot);
+
+  close_setup;
+  end;
+
+
+{*******************************}
+
+
+procedure Status_dir(n:longint);
+var st: string[4];
+  begin
+  if n > 0 then
+    begin
+    str(n:4,st);
+    if slactive then localonly;
+    if (on40 and wide) then gotoxy(41,wherey) else Gotoxy(1,wherey);
+    if slactive then localandremote;
+
+    if nothingnew then nothingnew := false;
+
+    if not subnamefirst then
+      begin
+      textcolor(Colors[2]);
+      write(st);textcolor(Colors[1]);
+      write(' new  files  in  ');
+      textcolor(Colors[2]);write(setup.name);
+      end
+    else
+      begin
+      textcolor(Colors[2]);write(tab(length(setup.name),8),setup.name);
+      textcolor(Colors[1]);write(' has');textcolor(Colors[2]);
+      write(st);textcolor(Colors[1]);write(' new files');
+      end;
+    if not wide then
+      begin
+      if not subnamefirst then write(tab(length(setup.name),8));
+      textcolor(Colors[3]);write(' - ');
+      textcolor(Colors[1]);write(dirhdr.name);
+      end
+    else write(tab(0,14));
+    textcolor(Colors[1]);
+    if (on40 or not wide) then writeln;
+    if wide then if on40=true then on40:=false else on40:=true;
+    end;
+  end;
+
+procedure scandir;
+var next: longint;
+    num : longint;
+    done: boolean;
+
+  begin
+  if scanningline then
+    begin
+    if SlActive then LocalOnly;
+    textcolor(Colors[3]);
+    if (on40 and wide) then gotoxy(41,wherey) else gotoxy(1, wherey);
+    write('Scanning dir ',casestr(setup.name),'...');clreol;
+    if SlActive then LocalAndRemote;
+    end;
+
+  open_Dir(setup.path,setup.name);
+  read_dir_GenHdr;
+  Read_Dir_Hdr;
+
+  num := 0;
+  next := DirHdr.Root.ListRoot;
+
+  done := false;
+
+  repeat
+     begin
+     read_dir(next,dir);
+     next := dir.leaf.next;
+     if Serial_day(dir.date.day,dir.date.month,dir.date.year) <
+        Serial_day(user.laston.day,user.laston.month,user.laston.year)
+      Then
+        begin
+        done := true;
+        end
+      else
+        begin
+        inc(num);
+        end;
+     end;
+  until done;
+
+  Status_Dir(num);
+  close_Dir;
+  end;
+
+procedure ClimbTree_DirSetup(rec:longint);
+  begin
+  if rec <> 0 then
+    begin
+    read_setup_data(rec,setup);
+
+    ClimbTree_DirSetup(Setup.Leaf.Left);
+
+    Read_Setup_Data(rec,setup);
+
+    if (User.access.filelevel >= Setup.Access) then ScanDir;
+
+    ClimbTree_DirSetup(Setup.leaf.right);
+
+    end;
+  end;
+
+
+procedure ScanFiles;
+  begin
+
+  Open_Setup(SetupDIR);
+  read_setup_genhdr;
+  read_setup_hdr;
+
+  ClimbTree_DirSetup(setuphdr.root.treeroot);
+
+  close_setup;
+
+  end;
+
+procedure Parse;
+  { whatsnew pathtoconfig /wide }
+  var idx : integer;
+      d   : boolean;
+      t   : char;
+      s   : string;
+      a   : integer;
+      l   : string;
+      code: integer;
+
+  begin
+  d := false;
+  idx := 0;
+  wide:=false;
+  pathtoconfig := '';
+  if Paramcount = 0 then
+     begin
+     end
+  else
+     begin
+     repeat
+        begin
+        inc(idx);
+        if Idx <= ParamCount then
+         begin
+         s := paramstr(idx);
+
+         for a := 1 to ord(s[0]) do s[a] := upcase(s[a]);
+
+         t :=  S[1] ;
+          case T of
+           '/':
+                begin
+                if upcasestr(copy(s,2,length(s)-1))='WIDE' then wide:=true;
+                end;
+           else
+                begin
+                pathtoconfig:=s;
+                end;
+           end;
+
+         end { idx < para.. }
+         else d := true;
+        end; { repeat.. }
+     until d;
+     end;
+  if upcasestr(getenv('WHATSNEW')) = 'WIDE' then wide := true;
+  if Pathtoconfig <> '' then
+   begin
+   if upcasestr(copy(pathtoconfig,length(pathtoconfig)-9,9))='CONFIG.SL2'
+    then pathtoconfig := copy(pathtoconfig,1,length(pathtoconfig)-9);
+   if pathtoconfig[length(pathtoconfig)] <> '\'
+    then pathtoconfig := pathtoconfig + '\';
+   end;
+  end;
+
+begin
+
+  Filemode := 66;
+
+  DirectVideo := False;
+
+  parse;
+
+  open_config;
+  read_config;
+  Close_config;
+
+  if UseCfgColors then
+    begin
+    Colors[1] := Cfg.ColorChart[Normal];           {cyan}
+    Colors[2] := Cfg.ColorChart[SubColor];         {lightcyan}
+    Colors[3] := Cfg.ColorChart[PromptColor];      {gray}
+    Colors[4] := Cfg.ColorChart[Special];          {white}
+    end
+  else
+    begin
+    Colors[1] := Cyan;
+    Colors[2] := LightCyan;
+    Colors[3] := LightGray;
+    Colors[4] := White;
+    end;
+
+  if SlActive then LocalOnly;
+  TextColor(Colors[4]);
+  write('WHATSNEW');textcolor(Colors[3]);
+  write(' - ');
+  textcolor(Colors[1]);
+  write(BragLine);
+  writeln;
+  writeln(Bragline2);
+  if SlActive then LocalAndRemote;
+
+  textcolor(Colors[1]);
+  Write('What''s New on ');textcolor(Colors[2]);
+  write(cfg.systemname);textcolor(Colors[1]);
+  writeln(' since your last call?');
+
+  Open_User;
+  Read_User_GenHdr;
+  Read_User_Hdr;
+  Read_User(Cfg.CurrUser, User);
+  Close_User;
+  Username := User.Name;
+
+  on40 := false;
+
+  nothingnew := true;
+
+  ScanMsgs;
+
+  ScanFiles;
+
+  if nothingnew then
+   begin
+   if slactive then localonly;
+   gotoxy(1,wherey);
+   if slactive then localandremote;
+   textcolor(Colors[1]);
+   writeln('No new files or messages since your last call');
+   end;
+  normvideo;
+  if NothingNew then Halt(1);
+end.
