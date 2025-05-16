@@ -1,0 +1,16 @@
+QUOTIL - Quotes Toggle for the Searchlight BBS System.
+
+Quotil (c) copyright 1991 by Zak Smith all rights reserved.
+
+Ok...   I wrote this for a few reasons...  one was that a few people had
+asked for such a program in the Searchlight echo in fidonet, another was 
+that I had nothing better to do on a rainy Saturday afternoon.  
+
+Ok.. on to the good stuff...  Put this program in your autologin batch
+file, and make sure it is ran while in the same directory for THAT NODE's
+CONFIG.SL2..  It will display a line that says it's name and if it toggled
+quotes on or off for this call..  The line in only displayed on the local
+side.  
+
+
+- Zak Smith - Sirius Cybernetics 414-966-3552 - 1:154/736@fidonet

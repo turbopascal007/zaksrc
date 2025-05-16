@@ -1,0 +1,91 @@
+This is the accompanying document for Registry.
+
+Registry -- (c) Copyright 1992 by Zak Smith, all rights reserved.
+
+  REGISTRY may be freely distributed as long as it has NOT been
+modified in ANY way.
+
+  If I see that it has been mucked around with, chances are I will not
+ write anything more for the non-Searchlight-running crowd.
+
+ Documents!  You must be kidding!
+
+ I don't know why I bother to write any documents, because chances
+are that no one will read them anyhow.  
+
+ Setup -- In order to set up this program, you must suffer through
+reading this whole document, and then, if you have, you will be able
+to figure it out.
+
+  Registry was cooked up because I was coaxed into calling a friend's
+wwiv <shudder> board, and he had this really lame "Registry Maker"
+door.
+
+  It had all these damned pauses in it, ones added on purpose (probably
+because someone thought it to be Ford's gift to sysops). 
+
+  One could only use it for something like 1.5 minutes at a time, and
+then one would be thrown out.  This is not mentioning that it was
+generally slow, and had no ANSI support.
+
+  So, since I had just pretty much finished re-vamping most of my
+programming libraries using OOP (and adding a few other things as
+well), I decided this would be a good chance to see what I could do. 
+The major functions of Registry were written and debugged in about
+1 to 2 hours, and most of that was hunting down one bug -- a memory
+allocation error. 
+
+  Then Jon Heil said that some other sysops had shown some interest
+in the program.  That next day, I added some additional functions I
+thought would be neat, and added all the more advanced ANSI color, etc.
+
+  I wrote all of the code for Registry in Turbo Pascal v6.0.  When
+built, TPCX reports that almost 4800 lines were compiled -- not bad
+;-).  
+
+ Oh yeah, I promise that these files that make up Registry will do
+except take up drive space.  I take no repsonsibility for anything
+bad it might do to your hardware or software.
+
+  Registry was also the first major application that uses my btree
+file routines -- they are fairly fast and they are reliable so far
+as I have tested them.
+
+ Registry creates a file cleverly called REGISTRY.DAT to hold the
+data.  If I were you, I wouldn't go mucking around with this file,
+and btree structures are tempermental if disturbed.
+
+  Because I don't know what cheesy i/o support wwiv has, I made
+Registry have its own modem i/o support internal.  Registry requires
+a FOSSIL driver to be active in memory.  I use X00, by Ray Gwinn
+(although I do not run Registry on my BBS).  
+
+ Registry requires 1 command line parameter, the com port number.  An
+example would be   c:\> REGISTRY 1   for com port 1.  You can put any
+number here you want, as long as you have a FOSSIL driver active for
+that port.
+
+ Registry retrieves the current user's name from line 2 of CHAIN.TXT,
+which must be in the directory that it is run from.
+
+ If the 20th line of CHAIN.TXT is  KB  then Registry will run in
+local mode.  ANSI is detected by internal routines.
+
+ The file REGISTRY.SYS must exist in the directory Registry is run from.
+
+ There are no known bugs in Registry, and I do not plan to enhance it 
+in any way in the future.
+
+ This document was created using Brief and a little Qedit (for good
+measure).  I do all of my Turbo Pascal programming in the TP 6.0 IDE.
+
+-----
+ I am sysop of Sirius Cybernetics BBS, which runs the SEARCHLIGHT BBS
+ System, by Frank LaRosa.  I can be reached by the folowing means:
+
+ internet: zak.smith@mixcom.com
+  fidonet: 1:154/736 as Sysop or Zak Smith
+   SL_NET: 250:200/736 " "     "   "  "
+   Direct: 414-966-3552 " "     "   "  "
+-----
+[eof]

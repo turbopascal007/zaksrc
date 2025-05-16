@@ -1,0 +1,33 @@
+Setnews - Set text file for last subboard util.
+Setnews (C) 1991 by Zak Smith all rights reserved.
+
+Ok..  This will rename a file to the last subboard of the current
+user on.
+
+Here is how I have set it up.
+
+---[ auto login batch ]---
+copy g:\slbbs\text\newssub.txt g:\slbbs\text\tempsub.txt > nul
+setnews tempsub.txt
+---[ end ]---
+Newssub.txt is in my TEXT file dir for Searchlight.  It contains what
+used to be in SUBA.TXT (the sl1.77 version) ..  The first line copies it
+and then the second line renames it to <lastsubboard>.txt ..
+
+It will display a short line..
+
+Setnews - Set text file for last subboard util.
+
+..on the local crt only.  <ie: not on the remote end>
+
+SETNEWS has *NOT* been tested extensively, although if I screwed up this
+simple program, I think my programming days are limited, heh.
+
+the end. 
+
+if you need help, or the source code, I am reachable at the following..
+Sirius Cybernetics bbs <mine> 414-966-3552 as Sysop
+Searchlight Support <Frank's> as Zak Smith
+netmail Fidonet 1:154/736 as Sysop, Zak Smith, etc..
+
+

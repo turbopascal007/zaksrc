@@ -1,0 +1,44 @@
+Pushigh - Push High Msg Utility by Zak Smith
+
+Pushigh (c) copyright 1992 by Zak Smith all rights reserved.
+
+---(Quick Version History)---
+   v1.01 - due to the fact that, as of version 2.25 of SEARCHLIGHT, it 
+           does not "DO" metacharacters on the DOOR Command lines, I added
+           support for the "\SB" metacharacter INTERNALLY to PUSHIGH.
+
+   initial release - worked fine.
+---(Back to Docs)---
+
+Ok.. you asked for it.  simple it is.
+
+This util will push the high message pointer for the specified user
+to the highest value in the specified subboards.
+
+Pushigh needs config.sl2 in the current directory, it will do the rest.
+
+params.
+
+pushigh  user_name [+subname] [-subname] [/all]
+
+ user_name - %U from SL. ZAK_SMITH and WINNIE_THE_POOH are good.
+
+ +subname  - include this dir in push high list.
+             (sub must allready be joined)
+
+ -subname  - exclude this dir from push high list.
+             (sub must allready be joined)
+             (if a dir is in both - and +, it is included)
+
+ /ALL      - push high all joined directories. 
+             (subs must allready be joined)
+
+
+examples - 
+pushigh zak_smith /all -mail -general -updates
+  -> pushed high all but mail, general, and updates
+  I can't say what will happen when you push high in MAIL, cause I don't know.
+
+
+-------------------------------------------------------------------------------
+Zak Smith - Sirius Cybernetics - 414-966-3552 - 1:154/736 - 250:200:736
